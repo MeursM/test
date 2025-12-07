@@ -1,0 +1,5 @@
+{
+  "name": "BattleForge 40k",
+  "description": "A premium Warhammer 40k match logger and analytics dashboard. Track scores, stratagems, and CP in real-time with direct sync to Google Sheets.",
+  "requestFramePermissions": []
+}
