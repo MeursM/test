@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // Using HashRouter wrapper in App
+import { useNavigate } from 'react-router-dom';
 import { ARMY_DATA, MISSIONS, PLAYERS } from '../constants';
-import { MatchState, INITIAL_PLAYER_ROUND, RoundData } from '../types';
+import { MatchState, INITIAL_PLAYER_ROUND } from '../types';
 import { submitMatchData } from '../services/sheetsService';
 import { Input } from '../components/ui/Input';
 import { Select } from '../components/ui/Select';
@@ -26,6 +27,7 @@ const INITIAL_STATE: MatchState = {
 };
 
 export const MatchLogger: React.FC = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'setup' | 1 | 2 | 3 | 4 | 5>('setup');
   const [matchData, setMatchData] = useState<MatchState>(() => {
     const saved = localStorage.getItem('battleforge_match_v1');
@@ -82,7 +84,6 @@ export const MatchLogger: React.FC = () => {
   const playerOptions = PLAYERS.map(p => ({ label: p, value: p }));
   const missionOptions = MISSIONS.map(m => ({ label: m, value: m }));
 
-  // Helper to get detachments based on selected army
   const getDetachments = (armyName: string) => {
     return (ARMY_DATA[armyName]?.detachments || []).map(d => ({ label: d, value: d }));
   };
@@ -91,16 +92,24 @@ export const MatchLogger: React.FC = () => {
     <div className="min-h-screen pb-20">
       <header className="bg-war-panel border-b border-zinc-700 p-4 sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto flex justify-between items-center">
-          <h1 className="text-2xl font-orbitron font-bold text-war-red tracking-widest">
-            BATTLE<span className="text-white">FORGE</span>
-          </h1>
-          <Button variant="danger" className="text-xs py-2 px-4" onClick={handleClear}>Reset</Button>
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-orbitron font-bold text-war-red tracking-widest leading-none">
+              BATTLE<span className="text-white">FORGE</span>
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/history')}>
+               STATS
+            </Button>
+            <Button variant="danger" className="text-xs py-2 px-3" onClick={handleClear}>
+               RESET
+            </Button>
+          </div>
         </div>
       </header>
 
       <main className="container mx-auto p-4 max-w-4xl">
         
-        {/* Analytics visible on all pages if setup is done */}
         {(matchData.player1 && matchData.player2) && (
           <MatchGraphs matchData={matchData} />
         )}
@@ -116,7 +125,6 @@ export const MatchLogger: React.FC = () => {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   {/* Player 1 Block */}
                    <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
                       <h3 className="text-war-red font-bold font-orbitron">Player 1 (Attacker)</h3>
                       <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Select Player" />
@@ -124,7 +132,6 @@ export const MatchLogger: React.FC = () => {
                       <Select label="Detachment" options={getDetachments(matchData.army1)} value={matchData.detachmentP1} onChange={e => updateSetup('detachmentP1', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army1} />
                    </div>
 
-                   {/* Player 2 Block */}
                    <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
                       <h3 className="text-blue-500 font-bold font-orbitron">Player 2 (Defender)</h3>
                       <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Select Player" />
@@ -181,7 +188,6 @@ export const MatchLogger: React.FC = () => {
 
       </main>
 
-      {/* Navigation Footer */}
       <nav className="fixed bottom-0 left-0 right-0 bg-black border-t border-zinc-800 flex justify-between items-center text-xs font-orbitron z-50">
          <button onClick={() => setActiveTab('setup')} className={`flex-1 py-4 text-center hover:bg-zinc-900 ${activeTab === 'setup' ? 'text-war-red bg-zinc-900 border-t-2 border-war-red' : 'text-zinc-500'}`}>SETUP</button>
          {[1,2,3,4,5].map(r => (

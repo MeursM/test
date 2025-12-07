@@ -1,3 +1,4 @@
+
 export interface Stratagem {
   name: string;
   cost: number;
@@ -44,6 +45,21 @@ export interface MatchSetup {
 
 export interface MatchState extends MatchSetup {
   rounds: RoundData[];
+}
+
+export interface HistoricalMatch {
+  id: string | number;
+  date: string;
+  points: number;
+  player1: string;
+  army1: string;
+  detachment1?: string;
+  player2: string;
+  army2: string;
+  detachment2?: string;
+  mission: string;
+  p1Score: number;
+  p2Score: number;
 }
 
 export const INITIAL_PLAYER_ROUND: PlayerRoundData = {

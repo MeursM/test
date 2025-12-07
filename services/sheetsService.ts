@@ -1,5 +1,6 @@
+
 import { GOOGLE_SCRIPT_URL } from '../constants';
-import { MatchState } from '../types';
+import { MatchState, HistoricalMatch } from '../types';
 
 export const submitMatchData = async (matchState: MatchState) => {
   // Transform the React State Tree into the flat JSON structure expected by the GAS doPost
@@ -66,5 +67,17 @@ export const submitMatchData = async (matchState: MatchState) => {
   } catch (error) {
     console.error("Transmission error:", error);
     throw error;
+  }
+};
+
+export const getMatchHistory = async (): Promise<HistoricalMatch[]> => {
+  try {
+    const response = await fetch(GOOGLE_SCRIPT_URL);
+    if (!response.ok) throw new Error("Failed to fetch");
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Fetch history error:", error);
+    return [];
   }
 };
