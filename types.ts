@@ -1,4 +1,5 @@
 
+
 export interface Stratagem {
   name: string;
   cost: number;
@@ -68,6 +69,13 @@ export interface HistoricalMatch {
   p1Score: number;
   p2Score: number;
   rawRounds?: HistoricalRoundData[];
+}
+
+export interface ScoringRule {
+  type: 'fixed' | 'tiered' | 'cumulative' | 'manual';
+  options?: number[]; // For tiered/fixed, e.g. [0, 2, 5]
+  increment?: number; // For cumulative, e.g. 4 for Assassination
+  max?: number;
 }
 
 export const INITIAL_PLAYER_ROUND: PlayerRoundData = {

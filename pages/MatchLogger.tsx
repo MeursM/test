@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ARMY_DATA, MISSIONS, PLAYERS } from '../constants';
@@ -178,6 +179,7 @@ export const MatchLogger: React.FC = () => {
                 armyData={ARMY_DATA[matchData.army1]}
                 detachmentName={matchData.detachmentP1}
                 roundNumber={activeTab}
+                primaryMission={matchData.primaryMission}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p1', d)}
                 startingCp={getStartCpForRound(activeTab, 'p1')}
               />
@@ -189,6 +191,7 @@ export const MatchLogger: React.FC = () => {
                 armyData={ARMY_DATA[matchData.army2]}
                 detachmentName={matchData.detachmentP2}
                 roundNumber={activeTab}
+                primaryMission={matchData.primaryMission}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p2', d)}
                 startingCp={getStartCpForRound(activeTab, 'p2')}
               />

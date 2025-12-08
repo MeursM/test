@@ -1,8 +1,10 @@
+
 import React, { useMemo } from 'react';
-import { PlayerRoundData, ArmyData } from '../types';
-import { GENERAL_STRATAGEMS, DETACHMENT_STRATAGEMS, SECONDARIES } from '../constants';
+import { PlayerRoundData, ArmyData, ScoringRule } from '../types';
+import { GENERAL_STRATAGEMS, DETACHMENT_STRATAGEMS, SECONDARIES, SECONDARY_SCORING, PRIMARY_SCORING } from '../constants';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
+import { Button } from './ui/Button';
 
 interface RoundInputProps {
   playerData: PlayerRoundData;
@@ -10,22 +12,89 @@ interface RoundInputProps {
   armyData?: ArmyData;
   detachmentName: string;
   roundNumber: number;
+  primaryMission: string;
   onChange: (newData: PlayerRoundData) => void;
   isPlayer2?: boolean;
-  startingCp: number; // The CP carried over from previous round
+  startingCp: number;
 }
 
+// Subcomponent for Scoring Control
+const ScoreControl: React.FC<{ 
+  label: string; 
+  value: number; 
+  rule: ScoringRule; 
+  onChange: (val: number) => void; 
+}> = ({ label, value, rule, onChange }) => {
+  
+  const handleInc = (delta: number) => {
+    const next = value + delta;
+    if (next < 0) return;
+    if (rule.max && next > rule.max) return;
+    onChange(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-1 w-full">
+      <label className="text-war-gray text-xs font-orbitron uppercase tracking-wider">{label}</label>
+      
+      {/* TIERED / FIXED: Show buttons for exact values */}
+      {(rule.type === 'tiered' || rule.type === 'fixed') && rule.options && (
+        <div className="flex gap-2">
+          {rule.options.map(opt => (
+            <button
+              key={opt}
+              onClick={() => onChange(opt)}
+              className={`flex-1 py-2 rounded text-sm font-bold border transition-all ${
+                value === opt 
+                  ? 'bg-war-red border-war-red text-white' 
+                  : 'bg-zinc-800 border-zinc-700 text-gray-400 hover:bg-zinc-700'
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* CUMULATIVE: Show - / + stepper */}
+      {rule.type === 'cumulative' && (
+        <div className="flex items-center gap-2 bg-zinc-900 rounded border border-zinc-700 p-1">
+          <button onClick={() => handleInc(-(rule.increment || 1))} className="w-10 h-8 bg-zinc-800 rounded hover:bg-zinc-700 text-white font-bold">-</button>
+          <div className="flex-1 text-center font-orbitron font-bold text-white text-lg">{value}</div>
+          <button onClick={() => handleInc(rule.increment || 1)} className="w-10 h-8 bg-zinc-800 rounded hover:bg-zinc-700 text-white font-bold">+</button>
+        </div>
+      )}
+
+      {/* MANUAL: Fallback to input */}
+      {rule.type === 'manual' && (
+         <input 
+           type="number" 
+           value={value} 
+           onChange={(e) => onChange(parseInt(e.target.value) || 0)}
+           className="bg-war-panel border border-zinc-700 rounded p-2 text-white font-mono w-full"
+         />
+      )}
+    </div>
+  );
+};
+
 export const RoundInput: React.FC<RoundInputProps> = ({ 
-  playerData, playerName, armyData, detachmentName, roundNumber, onChange, isPlayer2, startingCp 
+  playerData, playerName, armyData, detachmentName, roundNumber, primaryMission, onChange, isPlayer2, startingCp 
 }) => {
   
-  // Calculate Stratagems List based on detachment
   const availableStratagems = useMemo(() => {
     const specific = DETACHMENT_STRATAGEMS[detachmentName] || [];
     return [...GENERAL_STRATAGEMS, ...specific];
   }, [detachmentName]);
 
   const secondaryOptions = SECONDARIES.map(s => ({ label: s, value: s }));
+
+  // Determine Scoring Rules
+  const primaryRule = PRIMARY_SCORING[primaryMission] || PRIMARY_SCORING['default'];
+  
+  const getSecondaryRule = (name: string): ScoringRule => {
+    return SECONDARY_SCORING[name] || { type: 'manual' }; // Default to manual if unknown
+  };
 
   const updateField = (field: keyof PlayerRoundData, value: any) => {
     onChange({ ...playerData, [field]: value });
@@ -66,7 +135,7 @@ export const RoundInput: React.FC<RoundInputProps> = ({
     <div className={`bg-war-panel p-4 rounded-lg border ${borderColor} relative`}>
       <div className="absolute top-0 right-0 bg-black/40 px-3 py-1 rounded-bl-lg border-b border-l border-zinc-700 text-xs font-mono text-zinc-400">
          VP: <span className="text-white font-bold">{calculateTotal()}</span> | 
-         Carry Over: <span className="text-white">{startingCp}</span> | 
+         Carry: <span className="text-white">{startingCp}</span> | 
          End: <span className={endCp < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{endCp}</span>
       </div>
 
@@ -74,48 +143,49 @@ export const RoundInput: React.FC<RoundInputProps> = ({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         {/* Scoring */}
-        <div className="space-y-3">
-          <Input 
-            label="Primary VP" 
-            type="number" 
-            value={playerData.primary} 
-            onChange={e => updateField('primary', parseInt(e.target.value) || 0)} 
+        <div className="space-y-4">
+          
+          <ScoreControl 
+            label={`Primary: ${primaryMission || 'None'}`}
+            value={playerData.primary}
+            rule={primaryRule}
+            onChange={(val) => updateField('primary', val)}
           />
           
-          <div className="flex gap-2">
-            <Select 
+          <div className="p-3 bg-zinc-900/30 rounded border border-zinc-800 space-y-3">
+             <Select 
               label="Secondary 1"
-              className="flex-1"
               options={secondaryOptions} 
               placeholder="Select Mission"
               value={playerData.secondary1_name}
               onChange={e => updateField('secondary1_name', e.target.value)}
             />
-            <Input 
-              type="number" 
-              className="w-20" 
-              label="Pts"
-              value={playerData.secondary1_pts}
-              onChange={e => updateField('secondary1_pts', parseInt(e.target.value) || 0)}
-            />
+            {playerData.secondary1_name && (
+              <ScoreControl 
+                label="Score"
+                value={playerData.secondary1_pts}
+                rule={getSecondaryRule(playerData.secondary1_name)}
+                onChange={(val) => updateField('secondary1_pts', val)}
+              />
+            )}
           </div>
 
-          <div className="flex gap-2">
+          <div className="p-3 bg-zinc-900/30 rounded border border-zinc-800 space-y-3">
             <Select 
               label="Secondary 2"
-              className="flex-1"
               options={secondaryOptions} 
               placeholder="Select Mission"
               value={playerData.secondary2_name}
               onChange={e => updateField('secondary2_name', e.target.value)}
             />
-            <Input 
-              type="number" 
-              className="w-20" 
-              label="Pts"
-              value={playerData.secondary2_pts}
-              onChange={e => updateField('secondary2_pts', parseInt(e.target.value) || 0)}
-            />
+             {playerData.secondary2_name && (
+              <ScoreControl 
+                label="Score"
+                value={playerData.secondary2_pts}
+                rule={getSecondaryRule(playerData.secondary2_name)}
+                onChange={(val) => updateField('secondary2_pts', val)}
+              />
+            )}
           </div>
 
           <Input 
@@ -158,7 +228,7 @@ export const RoundInput: React.FC<RoundInputProps> = ({
                 <span className="text-xs text-zinc-500">Army Abilities:</span>
                 <select 
                   multiple 
-                  className="bg-zinc-800 border border-zinc-700 text-xs rounded p-1 h-20 text-gray-300"
+                  className="bg-zinc-800 border border-zinc-700 text-xs rounded p-1 h-20 text-gray-300 w-full"
                   value={playerData.cpEarnedArmy}
                   onChange={e => {
                     const selected = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);

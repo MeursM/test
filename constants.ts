@@ -1,5 +1,6 @@
 
-import { ArmyData, Stratagem } from './types';
+
+import { ArmyData, Stratagem, ScoringRule } from './types';
 
 export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzi-qogUtYyQhydV6oYgGrsxhZIUY3tCzFm94eYKbodvaKPfkzaOw8YmuriaUzfrQHU/exec';
 
@@ -13,6 +14,14 @@ export const MISSIONS = [
   "The Ritual", "Unexploded Ordnance"
 ];
 
+// Default Rule: 0, 5, 10, 15
+const STANDARD_PRIMARY: ScoringRule = { type: 'tiered', options: [0, 5, 10, 15], max: 15 };
+
+export const PRIMARY_SCORING: Record<string, ScoringRule> = {
+  "Purge the Foe": { type: 'manual', max: 15 }, // Complex: 4/8/12 + kills
+  "default": STANDARD_PRIMARY
+};
+
 export const SECONDARIES = [
   "A TEMPTING TARGET", "RECOVER ASSETS", "ASSASSINATION", "CULL THE HORDE",
   "BEHIND ENEMY LINES", "AREA DENIAL", "BRING IT DOWN", "CLEANSE",
@@ -21,6 +30,29 @@ export const SECONDARIES = [
   "NO PRISONERS", "OVERWHELMING FORCE", "SABOTAGE",
   "SECURE NO MAN'S LAND", "STORM HOSTILE OBJECTIVE"
 ];
+
+export const SECONDARY_SCORING: Record<string, ScoringRule> = {
+  "ASSASSINATION": { type: 'cumulative', increment: 4, max: 20 }, // 4 per kill
+  "BRING IT DOWN": { type: 'cumulative', increment: 1, max: 20 }, // Varies 2/3/etc, so 1 is safest
+  "NO PRISONERS": { type: 'cumulative', increment: 2, max: 20 }, // 2 per unit
+  "BEHIND ENEMY LINES": { type: 'tiered', options: [0, 2, 5], max: 5 },
+  "ENGAGE ON ALL FRONTS": { type: 'tiered', options: [0, 2, 5], max: 5 },
+  "CLEANSE": { type: 'tiered', options: [0, 2, 4], max: 4 },
+  "STORM HOSTILE OBJECTIVE": { type: 'tiered', options: [0, 5], max: 5 },
+  "AREA DENIAL": { type: 'tiered', options: [0, 5], max: 5 },
+  "A TEMPTING TARGET": { type: 'tiered', options: [0, 5], max: 5 },
+  "DEFEND STRONGHOLD": { type: 'tiered', options: [0, 5], max: 5 },
+  "EXTEND BATTLE LINES": { type: 'tiered', options: [0, 5], max: 5 },
+  "MARKED FOR DEATH": { type: 'tiered', options: [0, 5], max: 5 },
+  "OVERWHELMING FORCE": { type: 'tiered', options: [0, 5], max: 5 },
+  "SABOTAGE": { type: 'tiered', options: [0, 5], max: 5 },
+  "SECURE NO MAN'S LAND": { type: 'tiered', options: [0, 2, 5], max: 5 },
+  "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 }, // Usually max 5
+  "ESTABLISH LOCUS": { type: 'tiered', options: [0, 5], max: 5 },
+  "DISPLAY OF MIGHT": { type: 'tiered', options: [0, 5], max: 5 }, // Verify rules, often 5
+  "CULL THE HORDE": { type: 'tiered', options: [0, 5], max: 5 },
+};
+
 
 export const GENERAL_STRATAGEMS: Stratagem[] = [
   { name: "COMMAND RE-ROLL(move)", cost: 1 },
