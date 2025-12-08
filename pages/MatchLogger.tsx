@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ARMY_DATA, MISSIONS, PLAYERS } from '../constants';
@@ -50,6 +49,27 @@ export const MatchLogger: React.FC = () => {
       newRounds[roundIdx] = { ...newRounds[roundIdx], [player]: data };
       return { ...prev, rounds: newRounds };
     });
+  };
+
+  // Helper to calculate CP at the START of a round based on previous rounds
+  // Returns the "Banked" CP from all previous rounds combined
+  const getStartCpForRound = (roundNum: number, player: 'p1' | 'p2'): number => {
+    let cp = 0; 
+    
+    // Iterate through all previous rounds
+    for(let i=0; i < roundNum - 1; i++) {
+       const r = matchData.rounds[i][player];
+       const earned = (r.cpEarnedTurn1 ? 1 : 0) + 
+                      (r.cpEarnedTurn2 ? 1 : 0) + 
+                      (r.cpGainedTurn1 ? 1 : 0) + 
+                      (r.cpGainedTurn2 ? 1 : 0) + 
+                      r.cpEarnedArmy.reduce((acc, val) => acc + Number(val), 0);
+       
+       // Add net CP from that round (Earned - Used) to the total pool
+       cp += (earned - r.cpUsed);
+    }
+    // CP cannot be negative
+    return Math.max(0, cp);
   };
 
   const handleClear = () => {
@@ -159,6 +179,7 @@ export const MatchLogger: React.FC = () => {
                 detachmentName={matchData.detachmentP1}
                 roundNumber={activeTab}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p1', d)}
+                startingCp={getStartCpForRound(activeTab, 'p1')}
               />
               
               <RoundInput 
@@ -169,6 +190,7 @@ export const MatchLogger: React.FC = () => {
                 detachmentName={matchData.detachmentP2}
                 roundNumber={activeTab}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p2', d)}
+                startingCp={getStartCpForRound(activeTab, 'p2')}
               />
             </div>
 

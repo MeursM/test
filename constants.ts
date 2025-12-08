@@ -1,6 +1,6 @@
 import { ArmyData, Stratagem } from './types';
 
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwCcCOQmj9xCok8lDbfNhgpe3JpxuoGXaEqrp2K_BcdKyJtPlwLKYslaV4S_NsT5M-1/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyE_LhwPLnLH3dTIIq53z5PlubEaC0jsh3o5oQX4IUyYl8x6RnI0uCd0YuYt9rKUylV/exec';
 
 export const PLAYERS = [
   "Dylan", "Michiel", "Stijn", "Maarten", "Sven", "Stef", "Steven"

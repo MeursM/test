@@ -12,10 +12,11 @@ interface RoundInputProps {
   roundNumber: number;
   onChange: (newData: PlayerRoundData) => void;
   isPlayer2?: boolean;
+  startingCp: number; // The CP carried over from previous round
 }
 
 export const RoundInput: React.FC<RoundInputProps> = ({ 
-  playerData, playerName, armyData, detachmentName, roundNumber, onChange, isPlayer2 
+  playerData, playerName, armyData, detachmentName, roundNumber, onChange, isPlayer2, startingCp 
 }) => {
   
   // Calculate Stratagems List based on detachment
@@ -48,15 +49,16 @@ export const RoundInput: React.FC<RoundInputProps> = ({
     return playerData.primary + playerData.secondary1_pts + playerData.secondary2_pts + playerData.challenger;
   };
 
-  const calculateNetCP = () => {
-    const gained = (playerData.cpEarnedTurn1 ? 1 : 0) + 
+  const calculateEndCP = () => {
+    const earned = (playerData.cpEarnedTurn1 ? 1 : 0) + 
                    (playerData.cpEarnedTurn2 ? 1 : 0) + 
                    (playerData.cpGainedTurn1 ? 1 : 0) + 
                    (playerData.cpGainedTurn2 ? 1 : 0) + 
                    playerData.cpEarnedArmy.reduce((a, b) => a + parseFloat(b), 0);
-    return gained - playerData.cpUsed;
+    return startingCp + earned - playerData.cpUsed;
   };
 
+  const endCp = calculateEndCP();
   const borderColor = isPlayer2 ? 'border-blue-900/50' : 'border-red-900/50';
   const headerColor = isPlayer2 ? 'text-blue-400' : 'text-red-400';
 
@@ -64,7 +66,8 @@ export const RoundInput: React.FC<RoundInputProps> = ({
     <div className={`bg-war-panel p-4 rounded-lg border ${borderColor} relative`}>
       <div className="absolute top-0 right-0 bg-black/40 px-3 py-1 rounded-bl-lg border-b border-l border-zinc-700 text-xs font-mono text-zinc-400">
          VP: <span className="text-white font-bold">{calculateTotal()}</span> | 
-         Net CP: <span className={calculateNetCP() < 0 ? 'text-red-500' : 'text-green-500'}>{calculateNetCP()}</span>
+         Start CP: <span className="text-white">{startingCp}</span> | 
+         End CP: <span className={endCp < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{endCp}</span>
       </div>
 
       <h3 className={`font-orbitron text-lg font-bold mb-4 ${headerColor}`}>{playerName || (isPlayer2 ? 'Player 2' : 'Player 1')}</h3>
@@ -125,26 +128,27 @@ export const RoundInput: React.FC<RoundInputProps> = ({
 
         {/* Command Points & Stratagems */}
         <div className="space-y-3 bg-black/20 p-3 rounded">
-          <label className="text-war-gray text-xs font-orbitron uppercase">CP Earned</label>
+          <label className="text-war-gray text-xs font-orbitron uppercase">CP Management</label>
+          
           <div className="grid grid-cols-2 gap-2 mb-2">
              <div className="flex flex-col gap-2">
                <label className="flex items-center gap-2 text-sm text-gray-300">
                   <input type="checkbox" checked={playerData.cpEarnedTurn1} onChange={e => updateField('cpEarnedTurn1', e.target.checked)} className="accent-war-red" />
-                  Turn 1 CMD
+                  Turn 1 CMD (+1)
                </label>
                <label className="flex items-center gap-2 text-sm text-gray-300">
                   <input type="checkbox" checked={playerData.cpEarnedTurn2} onChange={e => updateField('cpEarnedTurn2', e.target.checked)} className="accent-war-red" />
-                  Turn 2 CMD
+                  Turn 2 CMD (+1)
                </label>
              </div>
              <div className="flex flex-col gap-2 border-l border-zinc-700 pl-2">
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
                   <input type="checkbox" checked={playerData.cpGainedTurn1} onChange={e => updateField('cpGainedTurn1', e.target.checked)} className="accent-war-red" />
-                  Gained CP
+                  Gained (+1)
                </label>
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
                   <input type="checkbox" checked={playerData.cpGainedTurn2} onChange={e => updateField('cpGainedTurn2', e.target.checked)} className="accent-war-red" />
-                  Gained CP
+                  Gained (+1)
                </label>
              </div>
           </div>
@@ -169,7 +173,7 @@ export const RoundInput: React.FC<RoundInputProps> = ({
           )}
 
           <Input 
-            label="Manual CP Used Adjustment" 
+            label="Manual CP Used" 
             type="number" 
             value={playerData.cpUsed} 
             onChange={e => updateField('cpUsed', parseInt(e.target.value) || 0)} 

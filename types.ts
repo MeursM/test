@@ -47,6 +47,13 @@ export interface MatchState extends MatchSetup {
   rounds: RoundData[];
 }
 
+// Data structure received from Google Apps Script
+export interface HistoricalRoundData {
+  round: number;
+  p1: { primary: number; secondary: number; challenger: number; cpEarned: number; cpUsed: number };
+  p2: { primary: number; secondary: number; challenger: number; cpEarned: number; cpUsed: number };
+}
+
 export interface HistoricalMatch {
   id: string | number;
   date: string;
@@ -60,6 +67,7 @@ export interface HistoricalMatch {
   mission: string;
   p1Score: number;
   p2Score: number;
+  rawRounds?: HistoricalRoundData[];
 }
 
 export const INITIAL_PLAYER_ROUND: PlayerRoundData = {
