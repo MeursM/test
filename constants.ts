@@ -32,25 +32,35 @@ export const SECONDARIES = [
 ];
 
 export const SECONDARY_SCORING: Record<string, ScoringRule> = {
-  "ASSASSINATION": { type: 'cumulative', increment: 4, max: 20 }, // 4 per kill
-  "BRING IT DOWN": { type: 'cumulative', increment: 1, max: 20 }, // Varies 2/3/etc, so 1 is safest
-  "NO PRISONERS": { type: 'cumulative', increment: 2, max: 20 }, // 2 per unit
-  "BEHIND ENEMY LINES": { type: 'tiered', options: [0, 2, 5], max: 5 },
-  "ENGAGE ON ALL FRONTS": { type: 'tiered', options: [0, 2, 5], max: 5 },
-  "CLEANSE": { type: 'tiered', options: [0, 2, 4], max: 4 },
-  "STORM HOSTILE OBJECTIVE": { type: 'tiered', options: [0, 5], max: 5 },
-  "AREA DENIAL": { type: 'tiered', options: [0, 5], max: 5 },
+  "AREA DENIAL": { type: 'tiered', options: [0, 2, 5], max: 5 },
+  "ASSASSINATION": { type: 'tiered', options: [0, 3, 4, 5], max: 5 }, // 4 per kill
   "A TEMPTING TARGET": { type: 'tiered', options: [0, 5], max: 5 },
-  "DEFEND STRONGHOLD": { type: 'tiered', options: [0, 5], max: 5 },
-  "EXTEND BATTLE LINES": { type: 'tiered', options: [0, 5], max: 5 },
-  "MARKED FOR DEATH": { type: 'tiered', options: [0, 5], max: 5 },
-  "OVERWHELMING FORCE": { type: 'tiered', options: [0, 5], max: 5 },
-  "SABOTAGE": { type: 'tiered', options: [0, 5], max: 5 },
-  "SECURE NO MAN'S LAND": { type: 'tiered', options: [0, 2, 5], max: 5 },
-  "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 }, // Usually max 5
-  "ESTABLISH LOCUS": { type: 'tiered', options: [0, 5], max: 5 },
-  "DISPLAY OF MIGHT": { type: 'tiered', options: [0, 5], max: 5 }, // Verify rules, often 5
+
+  "BEHIND ENEMY LINES": { type: 'tiered', options: [0, 3, 4], max: 4 },
+  "BRING IT DOWN": { type: 'tiered', options: [0, 2, 4], max: 4 }, // Varies 2/3/etc, so 1 is safest
+
+  "CLEANSE": { type: 'tiered', options: [0, 2, 4, 5], max: 4 },
   "CULL THE HORDE": { type: 'tiered', options: [0, 5], max: 5 },
+
+  "DEFEND STRONGHOLD": { type: 'tiered', options: [0, 3], max: 3 },
+  "DISPLAY OF MIGHT": { type: 'tiered', options: [0, 4], max: 4 }, // Verify rules, often 5
+
+  "ENGAGE ON ALL FRONTS": { type: 'tiered', options: [0, 1, 2, 4], max: 4 },
+  "ESTABLISH LOCUS": { type: 'tiered', options: [0, 2 ,4], max: 4 },
+  "EXTEND BATTLE LINES": { type: 'tiered', options: [0, 2 ,4], max: 4 },
+
+  "MARKED FOR DEATH": { type: 'tiered', options: [0, 2, 5], max: 5 },
+
+  "NO PRISONERS": { type: 'tiered', options: [0, 2, 4, 5], max: 5 }, // 2 per unit
+
+  "OVERWHELMING FORCE": { type: 'tiered', options: [0, 3, 5], max: 5 },
+
+  "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 }, // Usually max 5
+
+  "SABOTAGE": { type: 'tiered', options: [0, 6], max: 6 },
+  "SECURE NO MAN'S LAND": { type: 'tiered', options: [0, 2, 5], max: 5 },
+  "STORM HOSTILE OBJECTIVE": { type: 'tiered', options: [0, 4], max: 4 },
+
 };
 
 
