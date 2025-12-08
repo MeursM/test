@@ -14,6 +14,9 @@ export const History: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'leaderboard' | 'matchups' | 'analysis' | 'game' | 'logs'>('leaderboard');
   
+  // Winrate Filter State
+  const [winrateFilter, setWinrateFilter] = useState<'all' | '2000' | 'sub2000'>('all');
+
   // Analysis State
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [selectedGameId, setSelectedGameId] = useState<string>('');
@@ -28,7 +31,18 @@ export const History: React.FC = () => {
       if (data === null) {
         setError("Unable to connect to the database. Please check your internet connection or deployment settings.");
       } else {
-        setMatches(data.reverse());
+        // Filter out any rows that are actually headers (e.g. "Player 1")
+        const validMatches = data.filter(m => {
+          const p1 = m.player1?.trim().toLowerCase();
+          const p2 = m.player2?.trim().toLowerCase();
+          if (!p1 || !p2) return false;
+          // Check for common header values
+          const invalidNames = ['player 1', 'player 2', 'name', 'player name', 'player', 'p1', 'p2'];
+          if (invalidNames.includes(p1) || invalidNames.includes(p2)) return false;
+          return true;
+        });
+
+        setMatches(validMatches.reverse());
       }
       setLoading(false);
     });
@@ -42,7 +56,14 @@ export const History: React.FC = () => {
   const winrates = useMemo(() => {
     const results: Record<string, { wins: number, losses: number, draws: number }> = {};
     
-    matches.forEach(m => {
+    // Filter matches based on points criteria
+    const filteredMatches = matches.filter(m => {
+      if (winrateFilter === '2000') return m.points === 2000;
+      if (winrateFilter === 'sub2000') return m.points < 2000;
+      return true; // 'all'
+    });
+
+    filteredMatches.forEach(m => {
        const key1 = `${m.player1} | ${m.army1}`;
        const key2 = `${m.player2} | ${m.army2}`;
        
@@ -78,7 +99,7 @@ export const History: React.FC = () => {
       const rate = total > 0 ? (stats.wins / total) * 100 : 0;
       return { player, army, total, ...stats, rate };
     }).sort((a, b) => b.rate - a.rate);
-  }, [matches]);
+  }, [matches, winrateFilter]); // Recalculate when matches or filter changes
 
   // --- Matchup Logic ---
   const matchups = useMemo(() => {
@@ -372,7 +393,32 @@ export const History: React.FC = () => {
           {/* WINRATES VIEW */}
           {view === 'leaderboard' && (
               <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
-                 <h2 className="text-xl font-orbitron text-white mb-4 border-b border-zinc-700 pb-2">Player Winrates</h2>
+                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-zinc-700 pb-2 gap-3">
+                   <h2 className="text-xl font-orbitron text-white">
+                     {winrateFilter === 'all' ? 'Overall Winrates' : winrateFilter === '2000' ? '2000 Pts Winrates' : 'Sub-2000 Pts Winrates'}
+                   </h2>
+                   <div className="flex gap-2">
+                     <button 
+                        onClick={() => setWinrateFilter('all')} 
+                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === 'all' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                     >
+                       Overall
+                     </button>
+                     <button 
+                        onClick={() => setWinrateFilter('2000')} 
+                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === '2000' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                     >
+                       2000 Pts
+                     </button>
+                     <button 
+                        onClick={() => setWinrateFilter('sub2000')} 
+                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === 'sub2000' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                     >
+                       &lt; 2000 Pts
+                     </button>
+                   </div>
+                 </div>
+
                  <div className="overflow-x-auto">
                    <table className="w-full text-left border-collapse">
                      <thead>
@@ -386,7 +432,7 @@ export const History: React.FC = () => {
                      </thead>
                      <tbody>
                        {winrates.length === 0 ? (
-                         <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No matches recorded yet.</td></tr>
+                         <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No matches found for this category.</td></tr>
                        ) : winrates.map((stat, idx) => (
                          <tr key={idx} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors text-sm font-mono text-gray-300">
                            <td className="p-3 font-bold text-white">{stat.player}</td>
@@ -449,7 +495,7 @@ export const History: React.FC = () => {
                       <div className="flex-1 w-full">
                          <div className="text-xs text-war-gray mb-1 flex justify-between">
                            <span>{new Date(m.date).toLocaleDateString()}</span>
-                           <span className="uppercase tracking-wider font-bold text-war-red">{m.mission}</span>
+                           <span className="uppercase tracking-wider font-bold text-war-red">{m.mission} <span className="text-zinc-500 text-[10px] ml-1">({m.points}pts)</span></span>
                          </div>
                          <div className="flex justify-between items-center bg-black/30 p-3 rounded mb-2">
                             <div className={`flex-1 text-center ${s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
