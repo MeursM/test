@@ -28,7 +28,7 @@ export const PRIMARY_SCORING: Record<string, ScoringRule> = {
   "Hidden Supplies": STANDARD_PRIMARY,
   "Linchpin": { 
     type: 'additive', 
-    max: 26,
+    max: 15,
     groups: [
       { label: "no home Objectives", buttons: [3, 3, 3, 3], max: 12 },
       { label: "With home Objective", buttons: [3,5,5,5,5], max: 15 }
