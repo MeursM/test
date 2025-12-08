@@ -235,7 +235,7 @@ export const ARMY_DATA: Record<string, ArmyData> = {
     cpEarners: [{ name: "INEXORABLE ADVANCE", cp: 1 }, { name: "OTHER1", cp: 1 }]
   },
   "Deathwatch": {
-    name: "Death Watch",
+    name: "Deathwatch",
     detachments: ["1st Company Task Force", "Anvil Siege Force", "Black Spear Task Force", "Firestorm Assault Force", "Gladius Task Force", "Ironstorm Spearhead", "Librarius Conclave", "Stormlance Task Force", "Vanguard Spearhead"],
     cpEarners: [{ name: "Watch Master", cp: 1 }, { name: "Rites of Battle", cp: 1 }]
   },
