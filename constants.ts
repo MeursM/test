@@ -118,7 +118,7 @@ export const SECONDARY_SCORING: Record<string, ScoringRule> = {
 
   "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 },
 
-  "SABOTAGE": { type: 'tiered', options: [0, 6], max: 6 },
+  "SABOTAGE": { type: 'tiered', options: [0, 3 , 6], max: 6 },
   "SECURE NO MAN'S LAND": { type: 'tiered', options: [0, 2, 5], max: 5 },
   "STORM HOSTILE OBJECTIVE": { type: 'tiered', options: [0, 4], max: 4 },
 
