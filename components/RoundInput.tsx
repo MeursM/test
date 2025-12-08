@@ -66,8 +66,8 @@ export const RoundInput: React.FC<RoundInputProps> = ({
     <div className={`bg-war-panel p-4 rounded-lg border ${borderColor} relative`}>
       <div className="absolute top-0 right-0 bg-black/40 px-3 py-1 rounded-bl-lg border-b border-l border-zinc-700 text-xs font-mono text-zinc-400">
          VP: <span className="text-white font-bold">{calculateTotal()}</span> | 
-         Start CP: <span className="text-white">{startingCp}</span> | 
-         End CP: <span className={endCp < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{endCp}</span>
+         Carry Over: <span className="text-white">{startingCp}</span> | 
+         End: <span className={endCp < 0 ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>{endCp}</span>
       </div>
 
       <h3 className={`font-orbitron text-lg font-bold mb-4 ${headerColor}`}>{playerName || (isPlayer2 ? 'Player 2' : 'Player 1')}</h3>
@@ -144,11 +144,11 @@ export const RoundInput: React.FC<RoundInputProps> = ({
              <div className="flex flex-col gap-2 border-l border-zinc-700 pl-2">
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
                   <input type="checkbox" checked={playerData.cpGainedTurn1} onChange={e => updateField('cpGainedTurn1', e.target.checked)} className="accent-war-red" />
-                  Gained (+1)
+                  Gained (e.g Discard)
                </label>
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
                   <input type="checkbox" checked={playerData.cpGainedTurn2} onChange={e => updateField('cpGainedTurn2', e.target.checked)} className="accent-war-red" />
-                  Gained (+1)
+                  Gained (e.g Discard)
                </label>
              </div>
           </div>

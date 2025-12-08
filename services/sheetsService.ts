@@ -70,14 +70,21 @@ export const submitMatchData = async (matchState: MatchState) => {
   }
 };
 
-export const getMatchHistory = async (): Promise<HistoricalMatch[]> => {
+export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
   try {
-    const response = await fetch(GOOGLE_SCRIPT_URL);
-    if (!response.ok) throw new Error("Failed to fetch");
+    // Add cache busting and action param to ensure GET request is fresh
+    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getHistory&t=${Date.now()}`, {
+      method: 'GET',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Fetch history error:", error);
-    return [];
+    return null; // Return null to indicate error vs empty array
   }
 };

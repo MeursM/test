@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMatchHistory } from '../services/sheetsService';
@@ -10,17 +11,28 @@ export const History: React.FC = () => {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<HistoricalMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'leaderboard' | 'matchups' | 'analysis' | 'game' | 'logs'>('leaderboard');
   
   // Analysis State
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [selectedGameId, setSelectedGameId] = useState<string>('');
 
-  useEffect(() => {
+  const loadData = () => {
+    setLoading(true);
+    setError(null);
     getMatchHistory().then(data => {
-      setMatches(data.reverse());
+      if (data === null) {
+        setError("Unable to connect to the database. Please check your internet connection or deployment settings.");
+      } else {
+        setMatches(data.reverse());
+      }
       setLoading(false);
     });
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   // --- Winrate Logic (Leaderboard) ---
@@ -34,8 +46,18 @@ export const History: React.FC = () => {
        if (!results[key1]) results[key1] = { wins: 0, losses: 0, draws: 0 };
        if (!results[key2]) results[key2] = { wins: 0, losses: 0, draws: 0 };
        
-       const p1 = Number(m.p1Score);
-       const p2 = Number(m.p2Score);
+       // Recalculate Score from raw data to ensure accuracy (matching GAS snippet logic)
+       let p1 = 0;
+       let p2 = 0;
+
+       if (m.rawRounds && m.rawRounds.length > 0) {
+         p1 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.primary)||0) + (Number(r.p1.secondary)||0) + (Number(r.p1.challenger)||0), 0);
+         p2 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.primary)||0) + (Number(r.p2.secondary)||0) + (Number(r.p2.challenger)||0), 0);
+       } else {
+         // Fallback to summary columns if raw data is missing (legacy games)
+         p1 = Number(m.p1Score) || 0;
+         p2 = Number(m.p2Score) || 0;
+       }
 
        if (p1 > p2) {
          results[key1].wins++;
@@ -141,6 +163,14 @@ export const History: React.FC = () => {
   const allPlayers = Array.from(new Set(matches.flatMap(m => [m.player1, m.player2]))).sort();
   const allGameOptions = matches.map(m => ({ label: `${m.date.split('T')[0]}: ${m.player1} vs ${m.player2}`, value: String(m.id) }));
 
+  // Helper to get score for logs view
+  const getScore = (m: HistoricalMatch, p: 'p1' | 'p2') => {
+      if (m.rawRounds && m.rawRounds.length > 0) {
+          return m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0) + (Number(r[p].secondary)||0) + (Number(r[p].challenger)||0), 0);
+      }
+      return p === 'p1' ? m.p1Score : m.p2Score;
+  }
+
   return (
     <div className="min-h-screen bg-war-dark pb-20 p-4">
       <header className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -159,6 +189,12 @@ export const History: React.FC = () => {
 
       {loading ? (
         <div className="text-center text-zinc-500 font-orbitron animate-pulse mt-20">Accessing Archives...</div>
+      ) : error ? (
+        <div className="text-center mt-20 p-6 bg-war-panel border border-red-900 rounded-lg max-w-lg mx-auto">
+          <p className="text-red-400 font-bold mb-4 font-orbitron">Connection Failed</p>
+          <p className="text-zinc-400 mb-4">{error}</p>
+          <Button onClick={loadData} variant="primary">Retry Connection</Button>
+        </div>
       ) : (
         <div className="max-w-5xl mx-auto space-y-8 animate-fade-in">
           
@@ -178,7 +214,9 @@ export const History: React.FC = () => {
                        </tr>
                      </thead>
                      <tbody>
-                       {winrates.map((stat, idx) => (
+                       {winrates.length === 0 ? (
+                         <tr><td colSpan={5} className="p-4 text-center text-zinc-500">No matches recorded yet.</td></tr>
+                       ) : winrates.map((stat, idx) => (
                          <tr key={idx} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors text-sm font-mono text-gray-300">
                            <td className="p-3 font-bold text-white">{stat.player}</td>
                            <td className="p-3 text-zinc-400">{stat.army}</td>
@@ -210,7 +248,9 @@ export const History: React.FC = () => {
                        </tr>
                      </thead>
                      <tbody>
-                       {matchups.map((m, idx) => (
+                       {matchups.length === 0 ? (
+                         <tr><td colSpan={2} className="p-4 text-center text-zinc-500">No matches recorded yet.</td></tr>
+                       ) : matchups.map((m, idx) => (
                          <tr key={idx} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors text-sm font-mono text-gray-300">
                            <td className="p-3 font-bold text-white">{m.matchup}</td>
                            <td className="p-3 text-right font-orbitron text-war-red">{m.count}</td>
@@ -226,7 +266,11 @@ export const History: React.FC = () => {
           {view === 'logs' && (
               <div className="space-y-4">
                  <h2 className="text-xl font-orbitron text-white">Full Match History</h2>
-                 {matches.map((m) => (
+                 {matches.length === 0 ? <div className="text-center text-zinc-500">No matches found.</div> : 
+                 matches.map((m) => {
+                   const s1 = getScore(m, 'p1');
+                   const s2 = getScore(m, 'p2');
+                   return (
                    <div key={m.id} className="bg-war-panel border border-zinc-700 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center shadow-lg hover:border-war-red/50 transition-colors">
                       <div className="flex-1 w-full">
                          <div className="text-xs text-war-gray mb-1 flex justify-between">
@@ -234,21 +278,21 @@ export const History: React.FC = () => {
                            <span className="uppercase tracking-wider">{m.mission}</span>
                          </div>
                          <div className="flex justify-between items-center bg-black/30 p-3 rounded">
-                            <div className={`flex-1 text-center ${Number(m.p1Score) > Number(m.p2Score) ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
+                            <div className={`flex-1 text-center ${s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
                                <div className="text-sm uppercase mb-1">{m.player1}</div>
                                <div className="text-xs text-zinc-500 mb-1">{m.army1}</div>
-                               <div className="text-2xl font-orbitron">{m.p1Score}</div>
+                               <div className="text-2xl font-orbitron">{s1}</div>
                             </div>
                             <div className="px-4 text-zinc-600 font-bold text-sm">VS</div>
-                            <div className={`flex-1 text-center ${Number(m.p2Score) > Number(m.p1Score) ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
+                            <div className={`flex-1 text-center ${s2 > s1 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
                                <div className="text-sm uppercase mb-1">{m.player2}</div>
                                <div className="text-xs text-zinc-500 mb-1">{m.army2}</div>
-                               <div className="text-2xl font-orbitron">{m.p2Score}</div>
+                               <div className="text-2xl font-orbitron">{s2}</div>
                             </div>
                          </div>
                       </div>
                    </div>
-                 ))}
+                 )})}
               </div>
           )}
 
