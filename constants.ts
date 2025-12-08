@@ -224,35 +224,36 @@ export const DETACHMENT_STRATAGEMS: Record<string, Stratagem[]> = {
 };
 
 export const ARMY_DATA: Record<string, ArmyData> = {
-  "Tau Empire": {
-    name: "Tau Empire",
-    detachments: ["Kauyon", "Mont’ka", "Retaliation Cadre", "Kroot Hunting Pack", "Auxiliary Cadre", "Experimental Prototype Cadre"],
-    cpEarners: [{ name: "ETHEREAL COMMAND", cp: 1 }, { name: "KAU'YON", cp: 1 }, { name: "OTHER1", cp: 1 }]
+  "Adeptus Custodes": {
+    name: "Adeptus Custodes",
+    detachments: ["Auric Champions", "Lions of the Emperor", "Null Maiden Vigil", "Shield Host", "Solar Spearhead", "Talons of the Emperor"],
+    cpEarners: [{ name: "SHIELD HOST TACTICS", cp: 1 }]
   },
   "Death Guard": {
     name: "Death Guard",
     detachments: ["Virulent Vectorium", "Mortarion’s Hammer", "Champions of Contagion", "Tallyband Summoners", "Shamblerot Vectorium", "Death Lord’s Chosen", "Flyblown Host"],
     cpEarners: [{ name: "INEXORABLE ADVANCE", cp: 1 }, { name: "OTHER1", cp: 1 }]
   },
-  "Adeptus Custodes": {
-    name: "Adeptus Custodes",
-    detachments: ["Auric Champions", "Lions of the Emperor", "Null Maiden Vigil", "Shield Host", "Solar Spearhead", "Talons of the Emperor"],
-    cpEarners: [{ name: "SHIELD HOST TACTICS", cp: 1 }]
-  },
-  "Death Watch": {
+  "Deathwatch": {
     name: "Death Watch",
     detachments: ["1st Company Task Force", "Anvil Siege Force", "Black Spear Task Force", "Firestorm Assault Force", "Gladius Task Force", "Ironstorm Spearhead", "Librarius Conclave", "Stormlance Task Force", "Vanguard Spearhead"],
     cpEarners: [{ name: "Watch Master", cp: 1 }, { name: "Rites of Battle", cp: 1 }]
+  },
+  "Necrons": {
+    name: "Necrons",
+    detachments: ["Annihilation Legion", "Awakened Dynasty", "Canoptek Court", "Hypercrypt Legion", "Obeisance Phalanx", "Starshatter Arsenal"],
+    cpEarners: [{ name: "OTHER1", cp: 1 }]
   },
   "Orks": {
     name: "Orks",
     detachments: ["Bully Boyz", "Da Big Hunt", "Dread Mob", "Green Tide", "Kult of Speed", "More Dakka!", "Taktikal Brigade", "War Horde"],
     cpEarners: [{ name: "OTHER1", cp: 1 }]
   },
-  "Necrons": {
-    name: "Necrons",
-    detachments: ["Annihilation Legion", "Awakened Dynasty", "Canoptek Court", "Hypercrypt Legion", "Obeisance Phalanx", "Starshatter Arsenal"],
-    cpEarners: [{ name: "OTHER1", cp: 1 }]
+
+  "T'au Empire": {
+    name: "Tau Empire",
+    detachments: ["Kauyon", "Mont’ka", "Retaliation Cadre", "Kroot Hunting Pack", "Auxiliary Cadre", "Experimental Prototype Cadre"],
+    cpEarners: [{ name: "ETHEREAL COMMAND", cp: 1 }, { name: "KAU'YON", cp: 1 }, { name: "OTHER1", cp: 1 }]
   },
   "Tyranids": {
     name: "Tyranids",
