@@ -1,5 +1,4 @@
 
-
 export interface Stratagem {
   name: string;
   cost: number;
@@ -71,10 +70,18 @@ export interface HistoricalMatch {
   rawRounds?: HistoricalRoundData[];
 }
 
+export interface ScoringGroup {
+  label?: string;
+  buttons: number[]; // e.g. [5, 10]
+  max?: number; // e.g. 10
+}
+
 export interface ScoringRule {
-  type: 'fixed' | 'tiered' | 'cumulative' | 'manual';
+  type: 'fixed' | 'tiered' | 'cumulative' | 'manual' | 'additive';
   options?: number[]; // For tiered/fixed, e.g. [0, 2, 5]
   increment?: number; // For cumulative, e.g. 4 for Assassination
+  buttons?: number[]; // For simple additive, e.g. [2, 4]
+  groups?: ScoringGroup[]; // For complex grouped additive
   max?: number;
 }
 

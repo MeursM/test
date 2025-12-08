@@ -1,5 +1,4 @@
 
-
 import { ArmyData, Stratagem, ScoringRule } from './types';
 
 export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzi-qogUtYyQhydV6oYgGrsxhZIUY3tCzFm94eYKbodvaKPfkzaOw8YmuriaUzfrQHU/exec';
@@ -9,17 +8,79 @@ export const PLAYERS = [
 ];
 
 export const MISSIONS = [
-  "Hidden Supplies", "Burden of Trust", "Linchpin", "Purge the Foe",
+   "Burden of Trust", "Hidden Supplies", "Linchpin", "Purge the Foe",
   "Scorched Earth", "Supply Drop", "Take and Hold", "Terraform",
   "The Ritual", "Unexploded Ordnance"
 ];
 
-// Default Rule: 0, 5, 10, 15
-const STANDARD_PRIMARY: ScoringRule = { type: 'tiered', options: [0, 5, 10, 15], max: 15 };
+// Default Rule: Additive 5s
+const STANDARD_PRIMARY: ScoringRule = { type: 'additive', buttons: [5, 5, 5], max: 15 };
 
 export const PRIMARY_SCORING: Record<string, ScoringRule> = {
-  "Purge the Foe": { type: 'manual', max: 15 }, // Complex: 4/8/12 + kills
-  "default": STANDARD_PRIMARY
+  "Burden of Trust": { 
+    type: 'additive', 
+    max: 26,
+    groups: [
+      { label: "Control Objectives", buttons: [4, 4, 4, 4], max: 16 },
+      { label: "Guard", buttons: [2,2,2,2,2], max: 10 }
+    ]
+  },
+  "Hidden Supplies": STANDARD_PRIMARY,
+  "Linchpin": { 
+    type: 'additive', 
+    max: 26,
+    groups: [
+      { label: "no home Objectives", buttons: [3, 3, 3, 3], max: 12 },
+      { label: "With home Objective", buttons: [3,5,5,5,5], max: 15 }
+    ]
+  },
+  "Purge the Foe": { 
+    type: 'additive', 
+    max: 16,
+    groups: [
+      { label: "One or more destroyed", buttons: [4], max: 4 },
+      { label: "more destroyed", buttons: [4], max: 4 },
+      { label: "One Objective, more then the other", buttons: [4,4], max: 8 }
+    ]
+  },
+  // Scorched Earth: Grouped. Burn (Max 10) + Control (Max 10). Global Max 15.
+  "Scorched Earth": { 
+    type: 'additive', 
+    max: 20,
+    groups: [
+      { label: "Burn Objectives", buttons: [5, 10], max: 10 },
+      { label: "Control Objectives", buttons: [5, 5], max: 10 }
+    ]
+  },
+  "Supply Drop": { 
+    type: 'additive', 
+    max: 16,
+    groups: [
+      { label: "Second and Third", buttons: [5,5,5], max: 15},
+      { label: "Fourth", buttons: [8,8], max: 16 },
+      { label: "Fifth", buttons: [15], max: 15 }
+    ]
+  },
+  "Take and Hold": STANDARD_PRIMARY,
+  "Terraform": { 
+    type: 'additive', 
+    max: 16,
+    groups: [
+      { label: "Terraformed Objectives", buttons: [1,1,1,1], max: 4 },
+      { label: "Control Objectives", buttons: [4,4,4,4], max: 12 }
+    ]
+  },
+  "The Ritual": STANDARD_PRIMARY,
+  "Unexploded Ordnance": { 
+    type: 'additive', 
+    max: 24,
+    groups: [
+      { label: "within opponent deployment", buttons: [8,8,8], max: 24},
+      { label: "withing 6''", buttons: [5,5,5], max: 15 },
+      { label: "within 12''", buttons: [2,2,2], max: 6 }
+    ]
+  },
+  'default': STANDARD_PRIMARY
 };
 
 export const SECONDARIES = [
@@ -33,17 +94,17 @@ export const SECONDARIES = [
 
 export const SECONDARY_SCORING: Record<string, ScoringRule> = {
   "AREA DENIAL": { type: 'tiered', options: [0, 2, 5], max: 5 },
-  "ASSASSINATION": { type: 'tiered', options: [0, 3, 4, 5], max: 5 }, // 4 per kill
+  "ASSASSINATION": { type: 'tiered', options: [0, 3, 4, 5], max: 5 },
   "A TEMPTING TARGET": { type: 'tiered', options: [0, 5], max: 5 },
 
   "BEHIND ENEMY LINES": { type: 'tiered', options: [0, 3, 4], max: 4 },
-  "BRING IT DOWN": { type: 'tiered', options: [0, 2, 4], max: 4 }, // Varies 2/3/etc, so 1 is safest
+  "BRING IT DOWN": { type: 'tiered', options: [0, 2, 4], max: 4 },
 
   "CLEANSE": { type: 'tiered', options: [0, 2, 4, 5], max: 4 },
   "CULL THE HORDE": { type: 'tiered', options: [0, 5], max: 5 },
 
   "DEFEND STRONGHOLD": { type: 'tiered', options: [0, 3], max: 3 },
-  "DISPLAY OF MIGHT": { type: 'tiered', options: [0, 4], max: 4 }, // Verify rules, often 5
+  "DISPLAY OF MIGHT": { type: 'tiered', options: [0, 4], max: 4 },
 
   "ENGAGE ON ALL FRONTS": { type: 'tiered', options: [0, 1, 2, 4], max: 4 },
   "ESTABLISH LOCUS": { type: 'tiered', options: [0, 2 ,4], max: 4 },
@@ -51,11 +112,11 @@ export const SECONDARY_SCORING: Record<string, ScoringRule> = {
 
   "MARKED FOR DEATH": { type: 'tiered', options: [0, 2, 5], max: 5 },
 
-  "NO PRISONERS": { type: 'tiered', options: [0, 2, 4, 5], max: 5 }, // 2 per unit
+  "NO PRISONERS": { type: 'tiered', options: [0, 2, 4, 5], max: 5 },
 
   "OVERWHELMING FORCE": { type: 'tiered', options: [0, 3, 5], max: 5 },
 
-  "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 }, // Usually max 5
+  "RECOVER ASSETS": { type: 'tiered', options: [0, 3, 5], max: 5 },
 
   "SABOTAGE": { type: 'tiered', options: [0, 6], max: 6 },
   "SECURE NO MAN'S LAND": { type: 'tiered', options: [0, 2, 5], max: 5 },
@@ -185,7 +246,7 @@ export const ARMY_DATA: Record<string, ArmyData> = {
     cpEarners: [{ name: "OTHER1", cp: 1 }]
   }
 };
-// Add placeholder for other armies mentioned in the original code to avoid crashes if selected
+
 const OTHER_ARMIES = [
   "Agents of the Imperium", "Adeptus Mechanicus", "Adepta Sororitas", "Aeldari", 
   "Black Templars", "Blood Angels", "Chaos Daemons", "Chaos Knights", 
@@ -198,7 +259,7 @@ OTHER_ARMIES.forEach(army => {
     if (!ARMY_DATA[army]) {
         ARMY_DATA[army] = {
             name: army,
-            detachments: ["Index Detachment", "Special Task Force"], // Default placeholders
+            detachments: ["Index Detachment", "Special Task Force"],
             cpEarners: [{name: "General Ability", cp: 1}]
         }
     }

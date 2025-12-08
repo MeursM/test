@@ -53,11 +53,8 @@ export const MatchLogger: React.FC = () => {
   };
 
   // Helper to calculate CP at the START of a round based on previous rounds
-  // Returns the "Banked" CP from all previous rounds combined
   const getStartCpForRound = (roundNum: number, player: 'p1' | 'p2'): number => {
     let cp = 0; 
-    
-    // Iterate through all previous rounds
     for(let i=0; i < roundNum - 1; i++) {
        const r = matchData.rounds[i][player];
        const earned = (r.cpEarnedTurn1 ? 1 : 0) + 
@@ -65,12 +62,21 @@ export const MatchLogger: React.FC = () => {
                       (r.cpGainedTurn1 ? 1 : 0) + 
                       (r.cpGainedTurn2 ? 1 : 0) + 
                       r.cpEarnedArmy.reduce((acc, val) => acc + Number(val), 0);
-       
-       // Add net CP from that round (Earned - Used) to the total pool
        cp += (earned - r.cpUsed);
     }
-    // CP cannot be negative
     return Math.max(0, cp);
+  };
+
+  // Helper to calculate cumulative SCORES (Primary/Secondary) from PREVIOUS rounds
+  const getPriorScores = (roundNum: number, player: 'p1' | 'p2') => {
+    let primary = 0;
+    let secondary = 0;
+    for(let i=0; i < roundNum - 1; i++) {
+       const r = matchData.rounds[i][player];
+       primary += r.primary;
+       secondary += (r.secondary1_pts + r.secondary2_pts);
+    }
+    return { primary, secondary };
   };
 
   const handleClear = () => {
@@ -108,6 +114,11 @@ export const MatchLogger: React.FC = () => {
   const getDetachments = (armyName: string) => {
     return (ARMY_DATA[armyName]?.detachments || []).map(d => ({ label: d, value: d }));
   };
+
+  // Pre-calculate prior scores for current round
+  const activeRoundNum = typeof activeTab === 'number' ? activeTab : 1;
+  const p1Prior = getPriorScores(activeRoundNum, 'p1');
+  const p2Prior = getPriorScores(activeRoundNum, 'p2');
 
   return (
     <div className="min-h-screen pb-20">
@@ -182,6 +193,8 @@ export const MatchLogger: React.FC = () => {
                 primaryMission={matchData.primaryMission}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p1', d)}
                 startingCp={getStartCpForRound(activeTab, 'p1')}
+                priorPrimary={p1Prior.primary}
+                priorSecondary={p1Prior.secondary}
               />
               
               <RoundInput 
@@ -194,6 +207,8 @@ export const MatchLogger: React.FC = () => {
                 primaryMission={matchData.primaryMission}
                 onChange={(d) => updateRound(activeTab - 1 as number, 'p2', d)}
                 startingCp={getStartCpForRound(activeTab, 'p2')}
+                priorPrimary={p2Prior.primary}
+                priorSecondary={p2Prior.secondary}
               />
             </div>
 
