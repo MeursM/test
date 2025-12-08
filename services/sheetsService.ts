@@ -34,8 +34,10 @@ export const submitMatchData = async (matchState: MatchState) => {
     flatData[`p1_cp_earned_${i}`] = p1CpFromTurn + p1CpFromGained + p1CpFromArmy;
     
     flatData[`p1_cp_used_${i}`] = round.p1.cpUsed;
-    flatData[`p1_stratagems_${i}`] = round.p1.stratagems; // Array handled by GAS
-    flatData[`p1_cp_army_${i}`] = round.p1.cpEarnedArmy; // Array handled by GAS
+    
+    // Send arrays for Stratagems/CP - GAS will join them
+    flatData[`p1_stratagems_${i}`] = round.p1.stratagems; 
+    flatData[`p1_cp_army_${i}`] = round.p1.cpEarnedArmy; 
 
     // Player 2
     flatData[`p2_primary_${i}`] = round.p2.primary;
@@ -52,6 +54,8 @@ export const submitMatchData = async (matchState: MatchState) => {
     flatData[`p2_cp_earned_${i}`] = p2CpFromTurn + p2CpFromGained + p2CpFromArmy;
 
     flatData[`p2_cp_used_${i}`] = round.p2.cpUsed;
+    
+    // Send arrays for Stratagems/CP
     flatData[`p2_stratagems_${i}`] = round.p2.stratagems;
     flatData[`p2_cp_army_${i}`] = round.p2.cpEarnedArmy;
   });
@@ -59,7 +63,7 @@ export const submitMatchData = async (matchState: MatchState) => {
   try {
     const response = await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // Google Apps Script Web App constraint
+      mode: 'no-cors', 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(flatData)
     });
@@ -85,6 +89,6 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Fetch history error:", error);
-    return null; // Return null to indicate error vs empty array
+    return null; 
   }
 };

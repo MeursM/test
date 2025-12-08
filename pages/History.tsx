@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMatchHistory } from '../services/sheetsService';
-import { HistoricalMatch } from '../types';
+import { HistoricalMatch, HistoricalRoundData } from '../types';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -17,6 +17,9 @@ export const History: React.FC = () => {
   // Analysis State
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
   const [selectedGameId, setSelectedGameId] = useState<string>('');
+  
+  // Scorecard Modal State
+  const [selectedMatch, setSelectedMatch] = useState<HistoricalMatch | null>(null);
 
   const loadData = () => {
     setLoading(true);
@@ -46,7 +49,6 @@ export const History: React.FC = () => {
        if (!results[key1]) results[key1] = { wins: 0, losses: 0, draws: 0 };
        if (!results[key2]) results[key2] = { wins: 0, losses: 0, draws: 0 };
        
-       // Recalculate Score from raw data to ensure accuracy (matching GAS snippet logic)
        let p1 = 0;
        let p2 = 0;
 
@@ -54,7 +56,6 @@ export const History: React.FC = () => {
          p1 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.primary)||0) + (Number(r.p1.secondary)||0) + (Number(r.p1.challenger)||0), 0);
          p2 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.primary)||0) + (Number(r.p2.secondary)||0) + (Number(r.p2.challenger)||0), 0);
        } else {
-         // Fallback to summary columns if raw data is missing (legacy games)
          p1 = Number(m.p1Score) || 0;
          p2 = Number(m.p2Score) || 0;
        }
@@ -96,7 +97,6 @@ export const History: React.FC = () => {
   const playerAverageData = useMemo(() => {
     if (!selectedPlayer) return [];
     
-    // Arrays to hold sum of scores for rounds 1-5
     const totals = Array(5).fill(0).map(() => ({ primary: 0, secondary: 0, challenger: 0 }));
     let gameCount = 0;
 
@@ -104,7 +104,7 @@ export const History: React.FC = () => {
       if ((m.player1 === selectedPlayer || m.player2 === selectedPlayer) && m.rawRounds) {
         gameCount++;
         m.rawRounds.forEach((r, idx) => {
-          if (idx >= 5) return; // safety
+          if (idx >= 5) return; 
           const isP1 = m.player1 === selectedPlayer;
           const pData = isP1 ? r.p1 : r.p2;
           totals[idx].primary += Number(pData.primary) || 0;
@@ -116,7 +116,6 @@ export const History: React.FC = () => {
 
     if (gameCount === 0) return [];
 
-    // Calculate averages and cumulative
     let cumPrimary = 0, cumSecondary = 0, cumChallenger = 0;
     
     return totals.map((t, idx) => {
@@ -163,7 +162,6 @@ export const History: React.FC = () => {
   const allPlayers = Array.from(new Set(matches.flatMap(m => [m.player1, m.player2]))).sort();
   const allGameOptions = matches.map(m => ({ label: `${m.date.split('T')[0]}: ${m.player1} vs ${m.player2}`, value: String(m.id) }));
 
-  // Helper to get score for logs view
   const getScore = (m: HistoricalMatch, p: 'p1' | 'p2') => {
       if (m.rawRounds && m.rawRounds.length > 0) {
           return m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0) + (Number(r[p].secondary)||0) + (Number(r[p].challenger)||0), 0);
@@ -171,8 +169,181 @@ export const History: React.FC = () => {
       return p === 'p1' ? m.p1Score : m.p2Score;
   }
 
+  // --- SCORECARD COMPONENT ---
+  const ScorecardModal: React.FC<{ match: HistoricalMatch; onClose: () => void }> = ({ match, onClose }) => {
+    if (!match.rawRounds) return null;
+
+    // Helper to extract unique secondaries used by a player across all rounds
+    // Returns chronological order (R1 -> R5)
+    const getUniqueSecondaries = (player: 'p1' | 'p2') => {
+      const set = new Set<string>();
+      match.rawRounds?.forEach(r => {
+         const d = r[player];
+         if (d.secondary1Name) set.add(d.secondary1Name);
+         if (d.secondary2Name) set.add(d.secondary2Name);
+      });
+      
+      const list = Array.from(set); // No sort() here, keeps insertion order (chronological)
+
+      // Fallback: If no names found but points exist (Legacy Data), provide a generic row
+      if (list.length === 0) {
+         const totalSecPoints = match.rawRounds?.reduce((acc, r) => acc + (Number(r[player].secondary1Pts)||0) + (Number(r[player].secondary2Pts)||0), 0) || 0;
+         if (totalSecPoints > 0) return ["Legacy / Unknown Secondary"];
+      }
+
+      return list;
+    };
+
+    const p1Secondaries = getUniqueSecondaries('p1');
+    const p2Secondaries = getUniqueSecondaries('p2');
+
+    // Helper to calculate Start CP for a round (approximate reconstruction)
+    // NOTE: This reconstructs CP flow. Start CP = Prev End. End = Start + Earned - Used.
+    const calculateCpFlow = (player: 'p1' | 'p2') => {
+       let current = 0; // Assuming 0 start or just tracking flow
+       const flow = [];
+       for(let i=0; i<5; i++) {
+          const r = match.rawRounds![i];
+          if(!r) { flow.push(0); continue; }
+          const pData = r[player];
+          const start = current;
+          const end = start + Number(pData.cpEarned) - Number(pData.cpUsed);
+          current = Math.max(0, end);
+          flow.push(current);
+       }
+       return flow;
+    };
+
+    const p1Cp = calculateCpFlow('p1');
+    const p2Cp = calculateCpFlow('p2');
+    const s1Total = getScore(match, 'p1');
+    const s2Total = getScore(match, 'p2');
+    const winner = s1Total > s2Total ? match.player1 : (s2Total > s1Total ? match.player2 : "Draw");
+
+    // Reusable Score Row
+    const ScoreRow = ({ label, data, type }: { label: string, data: any[], type: 'p1'|'p2' }) => {
+      const total = data.reduce((a,b) => a+b, 0);
+      return (
+        <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-b border-zinc-800 hover:bg-white/5">
+           <div className="p-2 text-zinc-400 truncate border-r border-zinc-800">{label}</div>
+           {[0,1,2,3,4].map(idx => (
+             <div key={idx} className="p-2 text-center text-zinc-300 border-r border-zinc-800">
+               {data[idx] > 0 ? data[idx] : <span className="text-zinc-700">-</span>}
+             </div>
+           ))}
+           <div className="p-2 text-center font-bold text-white bg-white/5">{total}</div>
+        </div>
+      );
+    };
+
+    // Specific Secondary Row logic: Find points for this specific mission in each round
+    const SecondaryRow = ({ mission, type }: { mission: string, type: 'p1'|'p2' }) => {
+       const scores = [0,1,2,3,4].map(idx => {
+          const r = match.rawRounds![idx];
+          if (!r) return 0;
+          const d = r[type];
+          let pts = 0;
+          
+          if (mission === "Legacy / Unknown Secondary") {
+             // Catch-all for points without names
+             if (!d.secondary1Name) pts += Number(d.secondary1Pts);
+             if (!d.secondary2Name) pts += Number(d.secondary2Pts);
+          } else {
+             if (d.secondary1Name === mission) pts += Number(d.secondary1Pts);
+             if (d.secondary2Name === mission) pts += Number(d.secondary2Pts);
+          }
+          return pts;
+       });
+       return <ScoreRow label={mission} data={scores} type={type} />;
+    };
+
+    const renderPlayerSection = (player: string, army: string, detach: string | undefined, type: 'p1'|'p2', cpData: number[]) => {
+       const rounds = match.rawRounds || [];
+       const primaryScores = rounds.map(r => Number(r[type].primary)||0);
+       const challScores = rounds.map(r => Number(r[type].challenger)||0);
+       const score = type === 'p1' ? s1Total : s2Total;
+       const isWinner = winner === player;
+
+       return (
+         <div className="mb-8">
+            <div className="flex justify-between items-end mb-2 border-b-2 border-zinc-700 pb-2">
+               <div>
+                 <div className="text-xl font-bold font-orbitron text-white">{player}</div>
+                 <div className="text-xs text-zinc-400">{army}</div>
+                 {detach && <div className="text-[10px] text-zinc-500">{detach}</div>}
+               </div>
+               <div className={`text-3xl font-orbitron font-bold ${isWinner ? 'text-green-500' : 'text-zinc-500'}`}>
+                 {score}
+               </div>
+            </div>
+
+            <div className="bg-zinc-900/50 rounded border border-zinc-800 overflow-hidden">
+               {/* Header */}
+               <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] bg-black/40 text-xs text-zinc-500 font-bold uppercase">
+                  <div className="p-2">Mission</div>
+                  {[1,2,3,4,5].map(r => <div key={r} className="p-2 text-center">R{r}</div>)}
+                  <div className="p-2 text-center">Total</div>
+               </div>
+
+               {/* Primary */}
+               <ScoreRow label={match.mission} data={primaryScores} type={type} />
+               
+               {/* Secondaries */}
+               {(type === 'p1' ? p1Secondaries : p2Secondaries).map(m => (
+                  <SecondaryRow key={m} mission={m} type={type} />
+               ))}
+
+               {/* Challenger */}
+               {challScores.some(s => s > 0) && (
+                 <ScoreRow label="Challenger" data={challScores} type={type} />
+               )}
+
+               {/* CP Row (No Total) */}
+               <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-t border-zinc-700 bg-white/5 mt-1">
+                  <div className="p-2 text-zinc-400 font-bold border-r border-zinc-800">CP Remaining</div>
+                  {cpData.map((cp, idx) => (
+                    <div key={idx} className="p-2 text-center text-zinc-300 border-r border-zinc-800">{cp}</div>
+                  ))}
+                  <div className="p-2 bg-black/20"></div>
+               </div>
+            </div>
+         </div>
+       );
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-fade-in">
+         <div className="bg-war-panel w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-zinc-700 shadow-2xl flex flex-col">
+            <div className="p-4 border-b border-zinc-700 flex justify-between items-center bg-black/40 sticky top-0 z-10 backdrop-blur">
+               <div>
+                  <div className="text-xs text-zinc-500 font-mono">{new Date(match.date).toLocaleDateString()}</div>
+                  <div className="text-lg font-orbitron text-war-red font-bold">MATCH SCORECARD</div>
+               </div>
+               <button onClick={onClose} className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-2 rounded transition-colors">
+                 ✕ Close
+               </button>
+            </div>
+            
+            <div className="p-6">
+               <div className="flex justify-center items-center gap-6 mb-8 font-orbitron font-bold">
+                  <div className={`text-2xl ${s1Total > s2Total ? 'text-green-500' : s1Total < s2Total ? 'text-red-500' : 'text-zinc-400'}`}>{s1Total}</div>
+                  <div className="text-zinc-600 text-sm">VS</div>
+                  <div className={`text-2xl ${s2Total > s1Total ? 'text-green-500' : s2Total < s1Total ? 'text-red-500' : 'text-zinc-400'}`}>{s2Total}</div>
+               </div>
+
+               {renderPlayerSection(match.player1, match.army1, match.detachment1, 'p1', p1Cp)}
+               {renderPlayerSection(match.player2, match.army2, match.detachment2, 'p2', p2Cp)}
+
+            </div>
+         </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-war-dark pb-20 p-4">
+      {selectedMatch && <ScorecardModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />}
+
       <header className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <h1 className="text-2xl font-orbitron font-bold text-war-red">
           BATTLE<span className="text-white">LOGS</span>
@@ -270,14 +441,17 @@ export const History: React.FC = () => {
                  matches.map((m) => {
                    const s1 = getScore(m, 'p1');
                    const s2 = getScore(m, 'p2');
+                   // Allow viewing scorecard even if legacy data (just points)
+                   const canViewScorecard = m.rawRounds && m.rawRounds.length > 0;
+                   
                    return (
-                   <div key={m.id} className="bg-war-panel border border-zinc-700 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center shadow-lg hover:border-war-red/50 transition-colors">
+                   <div key={m.id} className="bg-war-panel border border-zinc-700 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center shadow-lg hover:border-war-red/50 transition-colors group relative">
                       <div className="flex-1 w-full">
                          <div className="text-xs text-war-gray mb-1 flex justify-between">
                            <span>{new Date(m.date).toLocaleDateString()}</span>
-                           <span className="uppercase tracking-wider">{m.mission}</span>
+                           <span className="uppercase tracking-wider font-bold text-war-red">{m.mission}</span>
                          </div>
-                         <div className="flex justify-between items-center bg-black/30 p-3 rounded">
+                         <div className="flex justify-between items-center bg-black/30 p-3 rounded mb-2">
                             <div className={`flex-1 text-center ${s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
                                <div className="text-sm uppercase mb-1">{m.player1}</div>
                                <div className="text-xs text-zinc-500 mb-1">{m.army1}</div>
@@ -290,6 +464,16 @@ export const History: React.FC = () => {
                                <div className="text-2xl font-orbitron">{s2}</div>
                             </div>
                          </div>
+                         {canViewScorecard && (
+                            <div className="text-center">
+                               <button 
+                                 onClick={() => setSelectedMatch(m)}
+                                 className="text-xs uppercase tracking-widest text-zinc-500 hover:text-white transition-colors py-1 px-4 border border-zinc-800 hover:border-zinc-600 rounded"
+                               >
+                                 View Scorecard
+                               </button>
+                            </div>
+                         )}
                       </div>
                    </div>
                  )})}

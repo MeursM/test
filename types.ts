@@ -50,8 +50,28 @@ export interface MatchState extends MatchSetup {
 // Data structure received from Google Apps Script
 export interface HistoricalRoundData {
   round: number;
-  p1: { primary: number; secondary: number; challenger: number; cpEarned: number; cpUsed: number };
-  p2: { primary: number; secondary: number; challenger: number; cpEarned: number; cpUsed: number };
+  p1: { 
+    primary: number; 
+    secondary1Name: string;
+    secondary1Pts: number;
+    secondary2Name: string;
+    secondary2Pts: number;
+    secondary: number; 
+    challenger: number; 
+    cpEarned: number; 
+    cpUsed: number; 
+  };
+  p2: { 
+    primary: number; 
+    secondary1Name: string;
+    secondary1Pts: number;
+    secondary2Name: string;
+    secondary2Pts: number;
+    secondary: number; 
+    challenger: number; 
+    cpEarned: number; 
+    cpUsed: number; 
+  };
 }
 
 export interface HistoricalMatch {

@@ -1,10 +1,11 @@
 
+
 import { ArmyData, Stratagem, ScoringRule } from './types';
 
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzi-qogUtYyQhydV6oYgGrsxhZIUY3tCzFm94eYKbodvaKPfkzaOw8YmuriaUzfrQHU/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyoPUgiARIII7Ee7YvNW0dQeJn77VqAJQ9-2aHOBQNK_h8ge1IidUCIeZnpPGvmEfJp/exec';
 
 export const PLAYERS = [
-  "Dylan", "Michiel", "Stijn", "Maarten", "Sven", "Stef", "Steven"
+  "Dylan", "Michiel", "Stijn", "Maarten", "Sven", "Stef", "Steven","Sam"
 ];
 
 export const MISSIONS = [
@@ -190,7 +191,7 @@ export const DETACHMENT_STRATAGEMS: Record<string, Stratagem[]> = {
   ],
   "War Horde": [
     { name: "CAREEN!", cost: 1 },
-    { name: "’ARD AS NAILS", cost: 1 },
+    { name: "HARD AS NAILS", cost: 1 },
     { name: "ORKS IS NEVER BEATEN", cost: 2 },
     { name: "UNBRIDLED CARNAGE", cost: 1 },
     { name: "MOB RULE", cost: 1 },
