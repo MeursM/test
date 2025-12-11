@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMatchHistory } from '../services/sheetsService';
-import { HistoricalMatch, HistoricalRoundData } from '../types';
+import { HistoricalMatch } from '../types';
 import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -12,7 +12,7 @@ export const History: React.FC = () => {
   const [matches, setMatches] = useState<HistoricalMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<'leaderboard' | 'matchups' | 'analysis' | 'game' | 'logs'>('leaderboard');
+  const [view, setView] = useState<'leaderboard' | 'tournaments' | 'matchups' | 'analysis' | 'game' | 'logs'>('leaderboard');
   
   // Winrate Filter State
   const [winrateFilter, setWinrateFilter] = useState<'all' | '2000' | 'sub2000'>('all');
@@ -58,6 +58,9 @@ export const History: React.FC = () => {
     
     // Filter matches based on points criteria
     const filteredMatches = matches.filter(m => {
+      // Exclude tournament games from general winrates if desired? User asked for "separate".
+      // Let's keep them in unless explicitly asked to remove, but the filter handles points.
+      
       if (winrateFilter === '2000') return m.points === 2000;
       if (winrateFilter === 'sub2000') return m.points < 2000;
       return true; // 'all'
@@ -99,7 +102,19 @@ export const History: React.FC = () => {
       const rate = total > 0 ? (stats.wins / total) * 100 : 0;
       return { player, army, total, ...stats, rate };
     }).sort((a, b) => b.rate - a.rate);
-  }, [matches, winrateFilter]); // Recalculate when matches or filter changes
+  }, [matches, winrateFilter]); 
+
+  // --- Tournament Grouping Logic ---
+  const tournamentGroups = useMemo(() => {
+    const groups: Record<string, HistoricalMatch[]> = {};
+    matches.forEach(m => {
+      if (m.tournamentId) {
+        if (!groups[m.tournamentId]) groups[m.tournamentId] = [];
+        groups[m.tournamentId].push(m);
+      }
+    });
+    return Object.entries(groups).map(([id, ms]) => ({ id, matches: ms }));
+  }, [matches]);
 
   // --- Matchup Logic ---
   const matchups = useMemo(() => {
@@ -194,8 +209,6 @@ export const History: React.FC = () => {
   const ScorecardModal: React.FC<{ match: HistoricalMatch; onClose: () => void }> = ({ match, onClose }) => {
     if (!match.rawRounds) return null;
 
-    // Helper to extract unique secondaries used by a player across all rounds
-    // Returns chronological order (R1 -> R5)
     const getUniqueSecondaries = (player: 'p1' | 'p2') => {
       const set = new Set<string>();
       match.rawRounds?.forEach(r => {
@@ -203,25 +216,19 @@ export const History: React.FC = () => {
          if (d.secondary1Name) set.add(d.secondary1Name);
          if (d.secondary2Name) set.add(d.secondary2Name);
       });
-      
-      const list = Array.from(set); // No sort() here, keeps insertion order (chronological)
-
-      // Fallback: If no names found but points exist (Legacy Data), provide a generic row
+      const list = Array.from(set);
       if (list.length === 0) {
          const totalSecPoints = match.rawRounds?.reduce((acc, r) => acc + (Number(r[player].secondary1Pts)||0) + (Number(r[player].secondary2Pts)||0), 0) || 0;
          if (totalSecPoints > 0) return ["Legacy / Unknown Secondary"];
       }
-
       return list;
     };
 
     const p1Secondaries = getUniqueSecondaries('p1');
     const p2Secondaries = getUniqueSecondaries('p2');
 
-    // Helper to calculate Start CP for a round (approximate reconstruction)
-    // NOTE: This reconstructs CP flow. Start CP = Prev End. End = Start + Earned - Used.
     const calculateCpFlow = (player: 'p1' | 'p2') => {
-       let current = 0; // Assuming 0 start or just tracking flow
+       let current = 0; 
        const flow = [];
        for(let i=0; i<5; i++) {
           const r = match.rawRounds![i];
@@ -241,8 +248,7 @@ export const History: React.FC = () => {
     const s2Total = getScore(match, 'p2');
     const winner = s1Total > s2Total ? match.player1 : (s2Total > s1Total ? match.player2 : "Draw");
 
-    // Reusable Score Row
-    const ScoreRow = ({ label, data, type }: { label: string, data: any[], type: 'p1'|'p2' }) => {
+    const ScoreRow: React.FC<{ label: string, data: any[], type: 'p1'|'p2' }> = ({ label, data, type }) => {
       const total = data.reduce((a,b) => a+b, 0);
       return (
         <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-b border-zinc-800 hover:bg-white/5">
@@ -257,16 +263,13 @@ export const History: React.FC = () => {
       );
     };
 
-    // Specific Secondary Row logic: Find points for this specific mission in each round
-    const SecondaryRow = ({ mission, type }: { mission: string, type: 'p1'|'p2' }) => {
+    const SecondaryRow: React.FC<{ mission: string, type: 'p1'|'p2' }> = ({ mission, type }) => {
        const scores = [0,1,2,3,4].map(idx => {
           const r = match.rawRounds![idx];
           if (!r) return 0;
           const d = r[type];
           let pts = 0;
-          
           if (mission === "Legacy / Unknown Secondary") {
-             // Catch-all for points without names
              if (!d.secondary1Name) pts += Number(d.secondary1Pts);
              if (!d.secondary2Name) pts += Number(d.secondary2Pts);
           } else {
@@ -297,29 +300,19 @@ export const History: React.FC = () => {
                  {score}
                </div>
             </div>
-
             <div className="bg-zinc-900/50 rounded border border-zinc-800 overflow-hidden">
-               {/* Header */}
                <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] bg-black/40 text-xs text-zinc-500 font-bold uppercase">
                   <div className="p-2">Mission</div>
                   {[1,2,3,4,5].map(r => <div key={r} className="p-2 text-center">R{r}</div>)}
                   <div className="p-2 text-center">Total</div>
                </div>
-
-               {/* Primary */}
                <ScoreRow label={match.mission} data={primaryScores} type={type} />
-               
-               {/* Secondaries */}
                {(type === 'p1' ? p1Secondaries : p2Secondaries).map(m => (
                   <SecondaryRow key={m} mission={m} type={type} />
                ))}
-
-               {/* Challenger */}
                {challScores.some(s => s > 0) && (
                  <ScoreRow label="Challenger" data={challScores} type={type} />
                )}
-
-               {/* CP Row (No Total) */}
                <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-t border-zinc-700 bg-white/5 mt-1">
                   <div className="p-2 text-zinc-400 font-bold border-r border-zinc-800">CP Remaining</div>
                   {cpData.map((cp, idx) => (
@@ -344,17 +337,14 @@ export const History: React.FC = () => {
                  ✕ Close
                </button>
             </div>
-            
             <div className="p-6">
                <div className="flex justify-center items-center gap-6 mb-8 font-orbitron font-bold">
                   <div className={`text-2xl ${s1Total > s2Total ? 'text-green-500' : s1Total < s2Total ? 'text-red-500' : 'text-zinc-400'}`}>{s1Total}</div>
                   <div className="text-zinc-600 text-sm">VS</div>
                   <div className={`text-2xl ${s2Total > s1Total ? 'text-green-500' : s2Total < s1Total ? 'text-red-500' : 'text-zinc-400'}`}>{s2Total}</div>
                </div>
-
                {renderPlayerSection(match.player1, match.army1, match.detachment1, 'p1', p1Cp)}
                {renderPlayerSection(match.player2, match.army2, match.detachment2, 'p2', p2Cp)}
-
             </div>
          </div>
       </div>
@@ -371,6 +361,7 @@ export const History: React.FC = () => {
         </h1>
         <div className="flex flex-wrap gap-2 justify-center">
            <Button variant={view === 'leaderboard' ? 'primary' : 'secondary'} onClick={() => setView('leaderboard')} className="text-xs py-2 px-3">Winrates</Button>
+           <Button variant={view === 'tournaments' ? 'primary' : 'secondary'} onClick={() => setView('tournaments')} className="text-xs py-2 px-3">Tournaments</Button>
            <Button variant={view === 'matchups' ? 'primary' : 'secondary'} onClick={() => setView('matchups')} className="text-xs py-2 px-3">Matchups</Button>
            <Button variant={view === 'analysis' ? 'primary' : 'secondary'} onClick={() => setView('analysis')} className="text-xs py-2 px-3">Player Avg</Button>
            <Button variant={view === 'game' ? 'primary' : 'secondary'} onClick={() => setView('game')} className="text-xs py-2 px-3">Game Review</Button>
@@ -452,6 +443,39 @@ export const History: React.FC = () => {
               </div>
           )}
 
+          {/* TOURNAMENTS VIEW */}
+          {view === 'tournaments' && (
+              <div className="space-y-6">
+                 {tournamentGroups.length === 0 ? (
+                    <div className="text-center text-zinc-500">No tournament games found.</div>
+                 ) : (
+                    tournamentGroups.map(group => (
+                       <div key={group.id} className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
+                          <h2 className="text-xl font-orbitron text-white mb-4 border-b border-zinc-700 pb-2">Tournament: <span className="text-war-red">{group.id.split('_')[0]}</span></h2>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                             {group.matches.map(m => {
+                               const s1 = getScore(m, 'p1');
+                               const s2 = getScore(m, 'p2');
+                               return (
+                                 <div key={m.id} className="bg-black/30 p-3 rounded border border-zinc-800 hover:border-zinc-600 cursor-pointer" onClick={() => setSelectedMatch(m)}>
+                                    <div className="text-[10px] text-zinc-500 mb-2 flex justify-between">
+                                       <span>{new Date(m.date).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-sm">
+                                       <span className={s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player1} ({s1})</span>
+                                       <span className="text-zinc-600 text-xs px-2">VS</span>
+                                       <span className={s2 > s1 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player2} ({s2})</span>
+                                    </div>
+                                 </div>
+                               );
+                             })}
+                          </div>
+                       </div>
+                    ))
+                 )}
+              </div>
+          )}
+
           {/* MATCHUPS VIEW */}
           {view === 'matchups' && (
               <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
@@ -487,7 +511,6 @@ export const History: React.FC = () => {
                  matches.map((m) => {
                    const s1 = getScore(m, 'p1');
                    const s2 = getScore(m, 'p2');
-                   // Allow viewing scorecard even if legacy data (just points)
                    const canViewScorecard = m.rawRounds && m.rawRounds.length > 0;
                    
                    return (

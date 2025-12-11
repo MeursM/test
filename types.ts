@@ -1,4 +1,5 @@
 
+
 export interface Stratagem {
   name: string;
   cost: number;
@@ -41,6 +42,9 @@ export interface MatchSetup {
   army2: string;
   detachmentP1: string;
   detachmentP2: string;
+  // Tournament Metadata
+  tournamentId?: string;
+  bracketMatchId?: string;
 }
 
 export interface MatchState extends MatchSetup {
@@ -88,6 +92,8 @@ export interface HistoricalMatch {
   p1Score: number;
   p2Score: number;
   rawRounds?: HistoricalRoundData[];
+  // Hydrated metadata
+  tournamentId?: string;
 }
 
 export interface ScoringGroup {
@@ -103,6 +109,30 @@ export interface ScoringRule {
   buttons?: number[]; // For simple additive, e.g. [2, 4]
   groups?: ScoringGroup[]; // For complex grouped additive
   max?: number;
+}
+
+// Tournament Types
+export interface TournamentMatch {
+  id: string;
+  roundIndex: number; // 0 = Ro16, 1 = QF, etc.
+  player1: string | null; // Null if waiting for previous match
+  player2: string | null;
+  winner: string | null;
+  nextMatchId?: string; // ID of the match the winner advances to
+  loserNextMatchId?: string; // For double elimination
+  status: 'pending' | 'ready' | 'completed';
+  bracketType?: 'winner' | 'loser' | 'final';
+}
+
+export interface Tournament {
+  id: string;
+  name: string;
+  type: 'single' | 'double';
+  participants: string[];
+  matches: TournamentMatch[];
+  rounds: number; // Total number of rounds
+  status: 'active' | 'completed';
+  dateCreated: string;
 }
 
 export const INITIAL_PLAYER_ROUND: PlayerRoundData = {

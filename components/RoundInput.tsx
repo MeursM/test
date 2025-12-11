@@ -60,7 +60,7 @@ const ScoreControl: React.FC<{
 
   // SOLVER: Reverse-engineer which buttons are active based on the single integer score
   // Used as fallback when no manual interaction has happened yet (e.g. page load)
-  const activeIndices = useMemo(() => {
+  const activeIndices = useMemo<Map<number, number[]>>(() => {
     // If user has manually clicked, prioritize that visual state
     if (manualSelection) return manualSelection;
 
@@ -124,7 +124,7 @@ const ScoreControl: React.FC<{
     const groups = rule.groups || (rule.buttons ? [{ buttons: rule.buttons }] : []);
     
     // Start with current visual state
-    const nextState = new Map(activeIndices);
+    const nextState = new Map<number, number[]>(activeIndices);
     
     // Update the specific group
     const currentGroupIndices = [...(nextState.get(groupIndex) || [])];

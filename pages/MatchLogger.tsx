@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ARMY_DATA, MISSIONS, PLAYERS } from '../constants';
 import { MatchState, INITIAL_PLAYER_ROUND } from '../types';
 import { submitMatchData } from '../services/sheetsService';
@@ -28,17 +29,29 @@ const INITIAL_STATE: MatchState = {
 
 export const MatchLogger: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Check for Tournament Init State
+  const tournamentState = location.state as Partial<MatchState> | undefined;
+
   const [activeTab, setActiveTab] = useState<'setup' | 1 | 2 | 3 | 4 | 5>('setup');
   const [matchData, setMatchData] = useState<MatchState>(() => {
+    // If we have tournament state passed in, use it immediately
+    if (tournamentState) {
+        return { ...INITIAL_STATE, ...tournamentState };
+    }
+
     const saved = localStorage.getItem('battleforge_match_v1');
     return saved ? JSON.parse(saved) : INITIAL_STATE;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-save
+  // Auto-save (Skip if in tournament mode to avoid overwriting standard local save, or use separate key)
   useEffect(() => {
-    localStorage.setItem('battleforge_match_v1', JSON.stringify(matchData));
-  }, [matchData]);
+    if (!tournamentState) {
+       localStorage.setItem('battleforge_match_v1', JSON.stringify(matchData));
+    }
+  }, [matchData, tournamentState]);
 
   const updateSetup = (field: keyof MatchState, value: any) => {
     setMatchData(prev => ({ ...prev, [field]: value }));
@@ -96,10 +109,32 @@ export const MatchLogger: React.FC = () => {
     setIsSubmitting(true);
     try {
       await submitMatchData(matchData);
+      
+      // Calculate winner for tournament return
+      let p1Score = 0, p2Score = 0;
+      matchData.rounds.forEach(r => {
+        p1Score += r.p1.primary + r.p1.secondary1_pts + r.p1.secondary2_pts + r.p1.challenger;
+        p2Score += r.p2.primary + r.p2.secondary1_pts + r.p2.secondary2_pts + r.p2.challenger;
+      });
+
+      const winner = p1Score > p2Score ? matchData.player1 : (p2Score > p1Score ? matchData.player2 : null);
+
       alert("Match submitted successfully!");
-      setMatchData(INITIAL_STATE);
-      localStorage.removeItem('battleforge_match_v1');
-      setActiveTab('setup');
+      
+      if (tournamentState) {
+        // Return to Tournament Hub with result
+        navigate('/tournament', { 
+            state: { 
+                completedMatchId: matchData.bracketMatchId, 
+                winner: winner 
+            } 
+        });
+      } else {
+        setMatchData(INITIAL_STATE);
+        localStorage.removeItem('battleforge_match_v1');
+        setActiveTab('setup');
+      }
+
     } catch (e) {
       alert("Failed to submit. Check internet connection.");
     } finally {
@@ -120,6 +155,8 @@ export const MatchLogger: React.FC = () => {
   const p1Prior = getPriorScores(activeRoundNum, 'p1');
   const p2Prior = getPriorScores(activeRoundNum, 'p2');
 
+  const isTournamentMode = !!matchData.tournamentId;
+
   return (
     <div className="min-h-screen pb-20">
       <header className="bg-war-panel border-b border-zinc-700 p-4 sticky top-0 z-50 shadow-lg">
@@ -128,10 +165,14 @@ export const MatchLogger: React.FC = () => {
             <h1 className="text-2xl font-orbitron font-bold text-war-red tracking-widest leading-none">
               BATTLE<span className="text-white">FORGE</span>
             </h1>
+            {isTournamentMode && <span className="text-xs text-green-400 font-mono">TOURNAMENT MATCH</span>}
           </div>
           <div className="flex gap-2">
-            <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/history')}>
+            {!isTournamentMode && <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/history')}>
                STATS
+            </Button>}
+             <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/tournament')}>
+               BRACKETS
             </Button>
             <Button variant="danger" className="text-xs py-2 px-3" onClick={handleClear}>
                RESET
@@ -159,14 +200,22 @@ export const MatchLogger: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                    <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
                       <h3 className="text-war-red font-bold font-orbitron">Player 1 (Attacker)</h3>
-                      <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Select Player" />
+                      {isTournamentMode ? (
+                        <div className="text-white font-bold text-lg border-b border-zinc-700 pb-2">{matchData.player1}</div>
+                      ) : (
+                        <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Select Player" />
+                      )}
                       <Select label="Army" options={armyOptions} value={matchData.army1} onChange={e => updateSetup('army1', e.target.value)} placeholder="Select Faction" />
                       <Select label="Detachment" options={getDetachments(matchData.army1)} value={matchData.detachmentP1} onChange={e => updateSetup('detachmentP1', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army1} />
                    </div>
 
                    <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
                       <h3 className="text-blue-500 font-bold font-orbitron">Player 2 (Defender)</h3>
-                      <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Select Player" />
+                      {isTournamentMode ? (
+                        <div className="text-white font-bold text-lg border-b border-zinc-700 pb-2">{matchData.player2}</div>
+                      ) : (
+                        <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Select Player" />
+                      )}
                       <Select label="Army" options={armyOptions} value={matchData.army2} onChange={e => updateSetup('army2', e.target.value)} placeholder="Select Faction" />
                       <Select label="Detachment" options={getDetachments(matchData.army2)} value={matchData.detachmentP2} onChange={e => updateSetup('detachmentP2', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army2} />
                    </div>

@@ -1,9 +1,19 @@
 
+
 import { GOOGLE_SCRIPT_URL } from '../constants';
 import { MatchState, HistoricalMatch } from '../types';
 
 export const submitMatchData = async (matchState: MatchState) => {
   // Transform the React State Tree into the flat JSON structure expected by the GAS doPost
+  
+  // METADATA PACKING:
+  // Since we can't change the GAS backend easily, we pack tournament data into the 'primaryMission' string.
+  // Format: "MissionName [TID:123|MID:456]"
+  let missionField = matchState.primaryMission;
+  if (matchState.tournamentId) {
+    missionField = `${matchState.primaryMission} [TID:${matchState.tournamentId}|MID:${matchState.bracketMatchId || '0'}]`;
+  }
+
   const flatData: any = {
     points: matchState.points,
     player1: matchState.player1,
@@ -12,7 +22,7 @@ export const submitMatchData = async (matchState: MatchState) => {
     army2: matchState.army2,
     detachmentP1: matchState.detachmentP1,
     detachmentP2: matchState.detachmentP2,
-    primaryMission: matchState.primaryMission,
+    primaryMission: missionField,
   };
 
   matchState.rounds.forEach((round, index) => {
@@ -86,7 +96,27 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
     }
     
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    if (!Array.isArray(data)) return [];
+
+    // Unpack Metadata
+    return data.map((m: any) => {
+      let tournamentId = undefined;
+      let cleanMission = m.mission;
+
+      // Check for [TID:...] tag
+      const metaMatch = m.mission && m.mission.match && m.mission.match(/\[TID:(.*?)(\|.*?)?\]/);
+      if (metaMatch) {
+        tournamentId = metaMatch[1];
+        cleanMission = m.mission.replace(/\[.*?\]/, '').trim();
+      }
+
+      return {
+        ...m,
+        mission: cleanMission, // Show clean name in UI
+        tournamentId
+      };
+    });
+
   } catch (error) {
     console.error("Fetch history error:", error);
     return null; 
