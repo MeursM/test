@@ -27,13 +27,16 @@ export const TournamentHub: React.FC = () => {
   // Handle return from MatchLogger with results
   useEffect(() => {
     if (location.state && location.state.completedMatchId && location.state.winner) {
+      // CRITICAL FIX: Wait for activeTournament to be loaded from localStorage
+      // If we navigate/clear state before 'activeTournament' is set, the update is lost.
+      if (!activeTournament) return;
+
       const { completedMatchId, winner } = location.state;
       
+      handleMatchCompletion(completedMatchId, winner);
+
+      // Only clear the state AFTER we have successfully processed it
       navigate(location.pathname, { replace: true, state: {} });
-      
-      if (activeTournament) {
-        handleMatchCompletion(completedMatchId, winner);
-      }
     }
   }, [location.state, activeTournament, navigate, location.pathname]);
 
@@ -118,6 +121,7 @@ export const TournamentHub: React.FC = () => {
     const newMatches = JSON.parse(JSON.stringify(activeTournament.matches)); 
     const match = newMatches.find((m: TournamentMatch) => m.id === matchId);
     
+    // If match is already completed with same winner, ignore
     if (match && match.status === 'completed' && match.winner === winner) return;
     
     if (match) {
