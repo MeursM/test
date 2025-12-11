@@ -124,88 +124,78 @@ export const TournamentHub: React.FC = () => {
         match.winner = winner;
         match.status = 'completed';
     
-        // Run settle to propagate winner
+        // 1. Settle the immediate match result
         settleBracket(newMatches);
         
-        // Check if new "Player vs BYE" scenarios arose and prune them if needed (though usually settle handles auto-wins)
-        // Topological pruning is destructive, so we generally rely on settleBracket for live updates.
-        // However, if we want to collapse the view live, we would need to run prune.
-        // For safety/simplicity in live mode, we stick to settleBracket which marks them "Completed" (green check).
-        // The user specifically asked for correct INITIAL GENERATION. Live updates can show the "Bye" win.
+        // 2. Prune any new Bye scenarios (e.g. if a Bye dropped to Loser Bracket)
+        const pruned = pruneBracket(newMatches);
+        
+        // 3. Final settle to ensure everything propagated
+        settleBracket(pruned);
     
-        const updatedTourney = { ...activeTournament, matches: newMatches };
+        const updatedTourney = { ...activeTournament, matches: pruned };
         setActiveTournament(updatedTourney);
         localStorage.setItem('battleforge_active_tournament', JSON.stringify(updatedTourney));
     }
   };
 
-  // --- Pruning Logic (Topological Rewire) ---
+  // --- Pruning Logic (Injection Method) ---
   const pruneBracket = (matches: TournamentMatch[]) => {
     let activeMatches = [...matches];
     let changed = true;
     let iterations = 0;
     
-    // We loop because removing one bypass might create another bypass downstream
     while(changed && iterations < 20) {
         changed = false;
         iterations++;
         const toRemoveIds: string[] = [];
         
-        // Sort by round to process early rounds first
+        // Sort by round to process upstream matches first
         activeMatches.sort((a,b) => a.roundIndex - b.roundIndex);
 
         for(const m of activeMatches) {
-            // Check if this match is a "Pass Through" (Player vs Bye) or "Dead" (Bye vs Bye)
-            
             const isWbR0 = m.bracketType === 'winner' && m.roundIndex === 0;
-            // We NEVER prune WB Round 0 Player vs Bye matches (we want to show the seed bye)
-            if (isWbR0 && m.player1 !== 'BYE' && m.player2 !== 'BYE') continue;
-            if (isWbR0 && (m.player1 === 'BYE' || m.player2 === 'BYE') && !(m.player1 === 'BYE' && m.player2 === 'BYE')) continue;
-
-            let shouldPrune = false;
             
-            // 1. BYE vs BYE (Always remove)
-            if (m.player1 === 'BYE' && m.player2 === 'BYE') {
+            let p1 = m.player1;
+            let p2 = m.player2;
+            
+            const isByeBye = p1 === 'BYE' && p2 === 'BYE';
+            const isPlayerBye = (p1 === 'BYE' || p2 === 'BYE') && !isByeBye; 
+            
+            let shouldPrune = false;
+            let projectedWinner: string | null = null;
+            let projectedLoser: string | null = null;
+
+            // 1. BYE vs BYE -> Winner is BYE, Loser is BYE. Always Remove.
+            if (isByeBye) {
                 shouldPrune = true;
-            }
-            // 2. Player vs BYE (Remove in LB or later rounds, effectively advancing player)
-            else if ((m.player1 === 'BYE' || m.player2 === 'BYE') && !isWbR0) {
+                projectedWinner = 'BYE';
+                projectedLoser = 'BYE';
+            } 
+            // 2. Player vs BYE -> Winner is Player, Loser is BYE. Remove unless WB Round 0.
+            else if (isPlayerBye && !isWbR0) {
                 shouldPrune = true;
+                projectedWinner = p1 === 'BYE' ? p2 : p1;
+                projectedLoser = 'BYE';
             }
 
-            if (shouldPrune) {
+            if (shouldPrune && projectedWinner) {
+                // INJECT RESULTS DOWNSTREAM
+                // This simulates the match happening instantly and auto-forwarding the result
+                if (m.nextMatchId) {
+                    if (advancePlayerToMatch(activeMatches, m.nextMatchId, projectedWinner)) {
+                        // If we successfully advanced, we might have created a new pruning opportunity downstream
+                        // The loop will catch it in the next iteration
+                    }
+                }
+                if (m.loserNextMatchId) {
+                    if (advancePlayerToMatch(activeMatches, m.loserNextMatchId, projectedLoser!)) {
+                        // same here
+                    }
+                }
+
                 toRemoveIds.push(m.id);
                 changed = true;
-                
-                // REWIRE: Connect input matches to output match
-                const nextId = m.nextMatchId;
-                const loserNextId = m.loserNextMatchId; // Usually null for LB matches, but exists for WB
-
-                // Rewire feeds to 'nextMatchId'
-                if (nextId) {
-                    // Find all matches that feed THIS match
-                    const feeders = activeMatches.filter(f => f.nextMatchId === m.id || f.loserNextMatchId === m.id);
-                    feeders.forEach(f => {
-                         if (f.nextMatchId === m.id) f.nextMatchId = nextId;
-                         if (f.loserNextMatchId === m.id) f.loserNextMatchId = nextId;
-                    });
-                }
-
-                // If this match produced a loser that goes somewhere (unlikely for Bye matches, but possible in WB)
-                if (loserNextId) {
-                     // Since "BYE" matches generally mean the BYE loses...
-                     // If P vs BYE -> P wins (goes to nextId), BYE loses (goes to loserNextId)
-                     // If we prune this, the "BYE" effectively propagates to loserNextId.
-                     // But we don't have a "Source of Bye" usually.
-                     // We just assume the destination receives a BYE.
-                     // We can manually inject 'BYE' into the destination?
-                     // Or, more robustly, we let the destination sit empty. 
-                     // When settleBracket runs, if it sees empty vs Player, it waits. 
-                     // If it sees empty vs empty? 
-                     
-                     // For correct LB generation, we rely on the fact that if a WB match sends a BYE to LB,
-                     // the LB match will eventually become [Player vs BYE] or [BYE vs BYE] and get pruned in the next loop.
-                }
             }
         }
         
@@ -416,14 +406,14 @@ export const TournamentHub: React.FC = () => {
     let matches = result.matches;
 
     // 1. Initial Settle: Push Names to initial matches
-    // This fills the "Player vs Bye" slots with actual names
+    // This fills the "Player vs Bye" slots with actual names in WB R0
     settleBracket(matches);
 
-    // 2. Structural Prune: Collapse any "Player vs Bye" or "Bye vs Bye" sections
-    // This rewires the graph to skip empty rounds
+    // 2. Structural Prune with Injection: 
+    // This collapses the bracket by auto-resolving Bye matches and pushing results downstream
     matches = pruneBracket(matches);
     
-    // 3. Final Settle: Propagate names through the new rewired connections
+    // 3. Final Settle: Propagate any remaining states
     settleBracket(matches);
 
     const newTourney: Tournament = {
