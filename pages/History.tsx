@@ -16,6 +16,7 @@ export const History: React.FC = () => {
   
   // Winrate Filter State
   const [winrateFilter, setWinrateFilter] = useState<'all' | '2000' | 'sub2000'>('all');
+  const [gameModeFilter, setGameModeFilter] = useState<'all' | 'Tournament' | 'Colosseum'>('all');
 
   // Analysis State
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -56,14 +57,15 @@ export const History: React.FC = () => {
   const winrates = useMemo(() => {
     const results: Record<string, { wins: number, losses: number, draws: number }> = {};
     
-    // Filter matches based on points criteria
+    // Filter matches based on criteria
     const filteredMatches = matches.filter(m => {
-      // Exclude tournament games from general winrates if desired? User asked for "separate".
-      // Let's keep them in unless explicitly asked to remove, but the filter handles points.
+      const pointsMatch = winrateFilter === 'all' || 
+                         (winrateFilter === '2000' && m.points === 2000) || 
+                         (winrateFilter === 'sub2000' && m.points < 2000);
       
-      if (winrateFilter === '2000') return m.points === 2000;
-      if (winrateFilter === 'sub2000') return m.points < 2000;
-      return true; // 'all'
+      const modeMatch = gameModeFilter === 'all' || m.gameMode === gameModeFilter;
+      
+      return pointsMatch && modeMatch;
     });
 
     filteredMatches.forEach(m => {
@@ -77,8 +79,15 @@ export const History: React.FC = () => {
        let p2 = 0;
 
        if (m.rawRounds && m.rawRounds.length > 0) {
-         p1 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.primary)||0) + (Number(r.p1.secondary)||0) + (Number(r.p1.challenger)||0), 0);
-         p2 = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.primary)||0) + (Number(r.p2.secondary)||0) + (Number(r.p2.challenger)||0), 0);
+         const p1Prim = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.primary)||0), 0);
+         const p1Sec = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.secondary)||0), 0);
+         const p1Chal = m.rawRounds.reduce((acc, r) => acc + (Number(r.p1.challenger)||0), 0);
+         p1 = Math.min(50, p1Prim) + Math.min(40, p1Sec) + p1Chal;
+
+         const p2Prim = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.primary)||0), 0);
+         const p2Sec = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.secondary)||0), 0);
+         const p2Chal = m.rawRounds.reduce((acc, r) => acc + (Number(r.p2.challenger)||0), 0);
+         p2 = Math.min(50, p2Prim) + Math.min(40, p2Sec) + p2Chal;
        } else {
          p1 = Number(m.p1Score) || 0;
          p2 = Number(m.p2Score) || 0;
@@ -102,7 +111,7 @@ export const History: React.FC = () => {
       const rate = total > 0 ? (stats.wins / total) * 100 : 0;
       return { player, army, total, ...stats, rate };
     }).sort((a, b) => b.rate - a.rate);
-  }, [matches, winrateFilter]); 
+  }, [matches, winrateFilter, gameModeFilter]); 
 
   // --- Tournament Grouping Logic ---
   const tournamentGroups = useMemo(() => {
@@ -165,10 +174,10 @@ export const History: React.FC = () => {
 
       return {
         round: `R${idx + 1}`,
-        Primary: parseFloat(cumPrimary.toFixed(1)),
-        Secondary: parseFloat(cumSecondary.toFixed(1)),
+        Primary: parseFloat(Math.min(50, cumPrimary).toFixed(1)),
+        Secondary: parseFloat(Math.min(40, cumSecondary).toFixed(1)),
         Challenger: parseFloat(cumChallenger.toFixed(1)),
-        Total: parseFloat((cumPrimary + cumSecondary + cumChallenger).toFixed(1))
+        Total: parseFloat((Math.min(50, cumPrimary) + Math.min(40, cumSecondary) + cumChallenger).toFixed(1))
       };
     });
   }, [matches, selectedPlayer]);
@@ -179,17 +188,22 @@ export const History: React.FC = () => {
     const m = matches.find(match => String(match.id) === selectedGameId);
     if (!m || !m.rawRounds) return null;
 
-    let p1Sum = 0, p2Sum = 0;
+    let p1PrimSum = 0, p1SecSum = 0, p1ChalSum = 0;
+    let p2PrimSum = 0, p2SecSum = 0, p2ChalSum = 0;
+    
     const data = m.rawRounds.map(r => {
-       const p1RoundTotal = (Number(r.p1.primary)||0) + (Number(r.p1.secondary)||0) + (Number(r.p1.challenger)||0);
-       const p2RoundTotal = (Number(r.p2.primary)||0) + (Number(r.p2.secondary)||0) + (Number(r.p2.challenger)||0);
-       p1Sum += p1RoundTotal;
-       p2Sum += p2RoundTotal;
+       p1PrimSum += (Number(r.p1.primary)||0);
+       p1SecSum += (Number(r.p1.secondary)||0);
+       p1ChalSum += (Number(r.p1.challenger)||0);
+
+       p2PrimSum += (Number(r.p2.primary)||0);
+       p2SecSum += (Number(r.p2.secondary)||0);
+       p2ChalSum += (Number(r.p2.challenger)||0);
        
        return {
          round: `R${r.round}`,
-         [m.player1]: p1Sum,
-         [m.player2]: p2Sum
+         [m.player1]: Math.min(50, p1PrimSum) + Math.min(40, p1SecSum) + p1ChalSum,
+         [m.player2]: Math.min(50, p2PrimSum) + Math.min(40, p2SecSum) + p2ChalSum
        };
     });
     return { data, p1: m.player1, p2: m.player2 };
@@ -200,7 +214,10 @@ export const History: React.FC = () => {
 
   const getScore = (m: HistoricalMatch, p: 'p1' | 'p2') => {
       if (m.rawRounds && m.rawRounds.length > 0) {
-          return m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0) + (Number(r[p].secondary)||0) + (Number(r[p].challenger)||0), 0);
+          const prim = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0), 0);
+          const sec = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].secondary)||0), 0);
+          const chal = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].challenger)||0), 0);
+          return Math.min(50, prim) + Math.min(40, sec) + chal;
       }
       return p === 'p1' ? m.p1Score : m.p2Score;
   }
@@ -386,27 +403,31 @@ export const History: React.FC = () => {
               <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
                  <div className="flex flex-col md:flex-row justify-between items-center mb-4 border-b border-zinc-700 pb-2 gap-3">
                    <h2 className="text-xl font-orbitron text-white">
-                     {winrateFilter === 'all' ? 'Overall Winrates' : winrateFilter === '2000' ? '2000 Pts Winrates' : 'Sub-2000 Pts Winrates'}
+                     Leaderboard
                    </h2>
-                   <div className="flex gap-2">
-                     <button 
-                        onClick={() => setWinrateFilter('all')} 
-                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === 'all' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
-                     >
-                       Overall
-                     </button>
-                     <button 
-                        onClick={() => setWinrateFilter('2000')} 
-                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === '2000' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
-                     >
-                       2000 Pts
-                     </button>
-                     <button 
-                        onClick={() => setWinrateFilter('sub2000')} 
-                        className={`text-xs px-3 py-1 rounded transition-colors ${winrateFilter === 'sub2000' ? 'bg-war-red text-white font-bold' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
-                     >
-                       &lt; 2000 Pts
-                     </button>
+                   <div className="flex flex-wrap gap-4 justify-center">
+                     <div className="flex gap-2 bg-black/20 p-1 rounded border border-zinc-800">
+                       {['all', '2000', 'sub2000'].map(f => (
+                         <button 
+                            key={f}
+                            onClick={() => setWinrateFilter(f as any)} 
+                            className={`text-[10px] px-2 py-1 rounded transition-colors uppercase font-bold ${winrateFilter === f ? 'bg-war-red text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                         >
+                           {f === 'all' ? 'All Pts' : f === '2000' ? '2000' : '<2000'}
+                         </button>
+                       ))}
+                     </div>
+                     <div className="flex gap-2 bg-black/20 p-1 rounded border border-zinc-800">
+                       {['all', 'Tournament', 'Colosseum'].map(f => (
+                         <button 
+                            key={f}
+                            onClick={() => setGameModeFilter(f as any)} 
+                            className={`text-[10px] px-2 py-1 rounded transition-colors uppercase font-bold ${gameModeFilter === f ? 'bg-war-red text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                         >
+                           {f}
+                         </button>
+                       ))}
+                     </div>
                    </div>
                  </div>
 
@@ -459,7 +480,14 @@ export const History: React.FC = () => {
                                return (
                                  <div key={m.id} className="bg-black/30 p-3 rounded border border-zinc-800 hover:border-zinc-600 cursor-pointer" onClick={() => setSelectedMatch(m)}>
                                     <div className="text-[10px] text-zinc-500 mb-2 flex justify-between">
-                                       <span>{new Date(m.date).toLocaleDateString()}</span>
+                                       <div className="flex gap-2 items-center">
+                                          <span>{new Date(m.date).toLocaleDateString()}</span>
+                                          {m.gameMode && (
+                                            <span className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold uppercase ${m.gameMode === 'Tournament' ? 'bg-blue-900/40 text-blue-300 border border-blue-800/50' : 'bg-amber-900/40 text-amber-300 border border-amber-800/50'}`}>
+                                              {m.gameMode}
+                                            </span>
+                                          )}
+                                       </div>
                                     </div>
                                     <div className="flex justify-between items-center text-sm">
                                        <span className={s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player1} ({s1})</span>
@@ -517,8 +545,15 @@ export const History: React.FC = () => {
                    <div key={m.id} className="bg-war-panel border border-zinc-700 rounded-lg p-4 flex flex-col md:flex-row gap-4 items-center shadow-lg hover:border-war-red/50 transition-colors group relative">
                       <div className="flex-1 w-full">
                          <div className="text-xs text-war-gray mb-1 flex justify-between">
-                           <span>{new Date(m.date).toLocaleDateString()}</span>
-                           <span className="uppercase tracking-wider font-bold text-war-red">{m.mission} <span className="text-zinc-500 text-[10px] ml-1">({m.points}pts)</span></span>
+                            <div className="flex gap-2 items-center">
+                              <span>{new Date(m.date).toLocaleDateString()}</span>
+                              {m.gameMode && (
+                                <span className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold uppercase ${m.gameMode === 'Tournament' ? 'bg-blue-900/40 text-blue-300 border border-blue-800/50' : 'bg-amber-900/40 text-amber-300 border border-amber-800/50'}`}>
+                                  {m.gameMode}
+                                </span>
+                              )}
+                            </div>
+                            <span className="uppercase tracking-wider font-bold text-war-red">{m.mission} <span className="text-zinc-500 text-[10px] ml-1">({m.points}pts)</span></span>
                          </div>
                          <div className="flex justify-between items-center bg-black/30 p-3 rounded mb-2">
                             <div className={`flex-1 text-center ${s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>

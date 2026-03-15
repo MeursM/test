@@ -33,6 +33,8 @@ export interface RoundData {
   p2: PlayerRoundData;
 }
 
+export type GameMode = 'Tournament' | 'Colosseum';
+
 export interface MatchSetup {
   points: number;
   primaryMission: string;
@@ -42,6 +44,7 @@ export interface MatchSetup {
   army2: string;
   detachmentP1: string;
   detachmentP2: string;
+  gameMode: GameMode;
   // Tournament Metadata
   tournamentId?: string;
   bracketMatchId?: string;
@@ -91,6 +94,7 @@ export interface HistoricalMatch {
   mission: string;
   p1Score: number;
   p2Score: number;
+  gameMode?: GameMode;
   rawRounds?: HistoricalRoundData[];
   // Hydrated metadata
   tournamentId?: string;

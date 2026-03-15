@@ -7,12 +7,16 @@ export const submitMatchData = async (matchState: MatchState) => {
   // Transform the React State Tree into the flat JSON structure expected by the GAS doPost
   
   // METADATA PACKING:
-  // Since we can't change the GAS backend easily, we pack tournament data into the 'primaryMission' string.
-  // Format: "MissionName [TID:123|MID:456]"
+  // Since we can't change the GAS backend easily, we pack tournament data and game mode into the 'primaryMission' string.
+  // Format: "MissionName [TID:123|MID:456|GM:Tournament]"
   let missionField = matchState.primaryMission;
+  const tags = [];
   if (matchState.tournamentId) {
-    missionField = `${matchState.primaryMission} [TID:${matchState.tournamentId}|MID:${matchState.bracketMatchId || '0'}]`;
+    tags.push(`TID:${matchState.tournamentId}`);
+    tags.push(`MID:${matchState.bracketMatchId || '0'}`);
   }
+  tags.push(`GM:${matchState.gameMode}`);
+  missionField = `${matchState.primaryMission} [${tags.join('|')}]`;
 
   const flatData: any = {
     points: matchState.points,
@@ -23,6 +27,7 @@ export const submitMatchData = async (matchState: MatchState) => {
     detachmentP1: matchState.detachmentP1,
     detachmentP2: matchState.detachmentP2,
     primaryMission: missionField,
+    gameMode: matchState.gameMode, // Still send it separately just in case the backend is updated
   };
 
   matchState.rounds.forEach((round, index) => {
@@ -101,19 +106,26 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
     // Unpack Metadata
     return data.map((m: any) => {
       let tournamentId = undefined;
+      let gameMode: any = m.gameMode || 'Tournament'; // Use separate field if exists, else default
       let cleanMission = m.mission;
 
-      // Check for [TID:...] tag
-      const metaMatch = m.mission && m.mission.match && m.mission.match(/\[TID:(.*?)(\|.*?)?\]/);
+      // Check for [TID:...] or [GM:...] tag in mission string
+      const metaMatch = m.mission && m.mission.match(/\[(.*?)\]/);
       if (metaMatch) {
-        tournamentId = metaMatch[1];
+        const tagContent = metaMatch[1];
+        const parts = tagContent.split('|');
+        parts.forEach((part: string) => {
+          if (part.startsWith('TID:')) tournamentId = part.replace('TID:', '');
+          if (part.startsWith('GM:')) gameMode = part.replace('GM:', '');
+        });
         cleanMission = m.mission.replace(/\[.*?\]/, '').trim();
       }
 
       return {
         ...m,
         mission: cleanMission, // Show clean name in UI
-        tournamentId
+        tournamentId,
+        gameMode
       };
     });
 

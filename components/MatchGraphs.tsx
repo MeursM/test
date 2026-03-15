@@ -8,27 +8,32 @@ interface MatchGraphsProps {
 
 export const MatchGraphs: React.FC<MatchGraphsProps> = ({ matchData }) => {
   // Process data for charts
+  let p1PrimarySum = 0;
+  let p1SecondarySum = 0;
+  let p1ChallengerSum = 0;
+  let p2PrimarySum = 0;
+  let p2SecondarySum = 0;
+  let p2ChallengerSum = 0;
+
   const data = matchData.rounds.map(r => {
-    const p1Total = r.p1.primary + r.p1.secondary1_pts + r.p1.secondary2_pts + r.p1.challenger;
-    const p2Total = r.p2.primary + r.p2.secondary1_pts + r.p2.secondary2_pts + r.p2.challenger;
+    const p1RoundTotal = r.p1.primary + r.p1.secondary1_pts + r.p1.secondary2_pts + r.p1.challenger;
+    const p2RoundTotal = r.p2.primary + r.p2.secondary1_pts + r.p2.secondary2_pts + r.p2.challenger;
     
+    p1PrimarySum += r.p1.primary;
+    p1SecondarySum += (r.p1.secondary1_pts + r.p1.secondary2_pts);
+    p1ChallengerSum += r.p1.challenger;
+
+    p2PrimarySum += r.p2.primary;
+    p2SecondarySum += (r.p2.secondary1_pts + r.p2.secondary2_pts);
+    p2ChallengerSum += r.p2.challenger;
+
     return {
       round: `R${r.roundNumber}`,
-      [matchData.player1 || 'P1']: p1Total,
-      [matchData.player2 || 'P2']: p2Total,
-      p1Cum: 0, // Calculated below
-      p2Cum: 0  // Calculated below
+      [matchData.player1 || 'P1']: p1RoundTotal,
+      [matchData.player2 || 'P2']: p2RoundTotal,
+      p1Cum: Math.min(50, p1PrimarySum) + Math.min(40, p1SecondarySum) + p1ChallengerSum,
+      p2Cum: Math.min(50, p2PrimarySum) + Math.min(40, p2SecondarySum) + p2ChallengerSum
     };
-  });
-
-  // Calculate Cumulative
-  let p1Sum = 0;
-  let p2Sum = 0;
-  data.forEach(d => {
-    p1Sum += d[matchData.player1 || 'P1'] as number;
-    p2Sum += d[matchData.player2 || 'P2'] as number;
-    d.p1Cum = p1Sum;
-    d.p2Cum = p2Sum;
   });
 
   const p1Name = matchData.player1 || 'Player 1';

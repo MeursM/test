@@ -20,6 +20,7 @@ const INITIAL_STATE: MatchState = {
   army2: '',
   detachmentP1: '',
   detachmentP2: '',
+  gameMode: 'Tournament',
   rounds: Array(5).fill(null).map((_, i) => ({
     roundNumber: i + 1,
     p1: { ...INITIAL_PLAYER_ROUND },
@@ -111,11 +112,21 @@ export const MatchLogger: React.FC = () => {
       await submitMatchData(matchData);
       
       // Calculate winner for tournament return
-      let p1Score = 0, p2Score = 0;
+      let p1Prim = 0, p1Sec = 0, p1Chal = 0;
+      let p2Prim = 0, p2Sec = 0, p2Chal = 0;
+      
       matchData.rounds.forEach(r => {
-        p1Score += r.p1.primary + r.p1.secondary1_pts + r.p1.secondary2_pts + r.p1.challenger;
-        p2Score += r.p2.primary + r.p2.secondary1_pts + r.p2.secondary2_pts + r.p2.challenger;
+        p1Prim += r.p1.primary;
+        p1Sec += (r.p1.secondary1_pts + r.p1.secondary2_pts);
+        p1Chal += r.p1.challenger;
+
+        p2Prim += r.p2.primary;
+        p2Sec += (r.p2.secondary1_pts + r.p2.secondary2_pts);
+        p2Chal += r.p2.challenger;
       });
+
+      const p1Score = Math.min(50, p1Prim) + Math.min(40, p1Sec) + p1Chal;
+      const p2Score = Math.min(50, p2Prim) + Math.min(40, p2Sec) + p2Chal;
 
       const winner = p1Score > p2Score ? matchData.player1 : (p2Score > p1Score ? matchData.player2 : null);
 
@@ -192,9 +203,18 @@ export const MatchLogger: React.FC = () => {
              <div className="bg-war-panel p-6 rounded-lg border border-zinc-700 shadow-xl">
                 <h2 className="text-xl font-orbitron mb-6 border-b border-zinc-700 pb-2">Match Setup</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                    <Input label="Points Limit" type="number" value={matchData.points} onChange={e => updateSetup('points', parseInt(e.target.value))} />
                    <Select label="Primary Mission" options={missionOptions} value={matchData.primaryMission} onChange={e => updateSetup('primaryMission', e.target.value)} placeholder="Select Mission" />
+                   <Select 
+                     label="Game Mode" 
+                     options={[
+                       { label: 'Tournament', value: 'Tournament' },
+                       { label: 'Colosseum', value: 'Colosseum' }
+                     ]} 
+                     value={matchData.gameMode} 
+                     onChange={e => updateSetup('gameMode', e.target.value)} 
+                   />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

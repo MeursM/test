@@ -259,6 +259,11 @@ export const ARMY_DATA: Record<string, ArmyData> = {
     name: "Tyranids",
     detachments: ["Assimilation Swarm", "Crusher Stampede", "Invasion Fleet", "Subterranean Assault", "Synaptic Nexus", "Unending Swarm", "Vanguard Onslaught", "Warrior Bioform Onslaught"],
     cpEarners: [{ name: "OTHER1", cp: 1 }]
+  },
+  "Thousand Sons": {
+    name: "Thousand Sons",
+    detachments: ["Grand Coven","Changehost of Deceit","Warpmeld Pact","Rubricae Phalanx","Warpforged Cabal","Hexwarp Thrallband"],
+    cpEarners: [{ name: "OTHER1", cp: 1 }]
   }
 };
 
