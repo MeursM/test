@@ -458,7 +458,9 @@ export const TournamentHub: React.FC = () => {
          player1: m.player1,
          player2: m.player2,
          tournamentId: activeTournament.id,
-         bracketMatchId: m.id
+         bracketMatchId: m.id,
+         roundIndex: m.roundIndex,
+         bracketType: m.bracketType
        }
      });
   };

@@ -48,6 +48,8 @@ export interface MatchSetup {
   // Tournament Metadata
   tournamentId?: string;
   bracketMatchId?: string;
+  roundIndex?: number;
+  bracketType?: 'winner' | 'loser' | 'final';
 }
 
 export interface MatchState extends MatchSetup {
@@ -98,6 +100,9 @@ export interface HistoricalMatch {
   rawRounds?: HistoricalRoundData[];
   // Hydrated metadata
   tournamentId?: string;
+  bracketMatchId?: string;
+  roundIndex?: number;
+  bracketType?: 'winner' | 'loser' | 'final';
 }
 
 export interface ScoringGroup {

@@ -14,6 +14,8 @@ export const submitMatchData = async (matchState: MatchState) => {
   if (matchState.tournamentId) {
     tags.push(`TID:${matchState.tournamentId}`);
     tags.push(`MID:${matchState.bracketMatchId || '0'}`);
+    if (matchState.roundIndex !== undefined) tags.push(`RID:${matchState.roundIndex}`);
+    if (matchState.bracketType) tags.push(`BT:${matchState.bracketType}`);
   }
   tags.push(`GM:${matchState.gameMode}`);
   missionField = `${matchState.primaryMission} [${tags.join('|')}]`;
@@ -106,6 +108,9 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
     // Unpack Metadata
     return data.map((m: any) => {
       let tournamentId = undefined;
+      let bracketMatchId = undefined;
+      let roundIndex = undefined;
+      let bracketType = undefined;
       let gameMode: any = m.gameMode || 'Tournament'; // Use separate field if exists, else default
       let cleanMission = m.mission;
 
@@ -116,6 +121,9 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
         const parts = tagContent.split('|');
         parts.forEach((part: string) => {
           if (part.startsWith('TID:')) tournamentId = part.replace('TID:', '');
+          if (part.startsWith('MID:')) bracketMatchId = part.replace('MID:', '');
+          if (part.startsWith('RID:')) roundIndex = parseInt(part.replace('RID:', ''));
+          if (part.startsWith('BT:')) bracketType = part.replace('BT:', '') as any;
           if (part.startsWith('GM:')) gameMode = part.replace('GM:', '');
         });
         cleanMission = m.mission.replace(/\[.*?\]/, '').trim();
@@ -125,6 +133,9 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
         ...m,
         mission: cleanMission, // Show clean name in UI
         tournamentId,
+        bracketMatchId,
+        roundIndex,
+        bracketType,
         gameMode
       };
     });

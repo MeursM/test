@@ -17,6 +17,7 @@ export const History: React.FC = () => {
   // Winrate Filter State
   const [winrateFilter, setWinrateFilter] = useState<'all' | '2000' | 'sub2000'>('all');
   const [gameModeFilter, setGameModeFilter] = useState<'all' | 'Tournament' | 'Colosseum'>('all');
+  const [bracketViews, setBracketViews] = useState<Record<string, boolean>>({});
 
   // Analysis State
   const [selectedPlayer, setSelectedPlayer] = useState<string>('');
@@ -368,6 +369,65 @@ export const History: React.FC = () => {
     );
   };
 
+  const toggleBracketView = (tourneyId: string) => {
+    setBracketViews(prev => ({ ...prev, [tourneyId]: !prev[tourneyId] }));
+  };
+
+  const renderTournamentBracket = (matches: HistoricalMatch[]) => {
+    const hasMetadata = matches.some(m => m.roundIndex !== undefined);
+    if (!hasMetadata) return <div className="text-zinc-500 text-xs italic">Metadata missing for this tournament. Bracket view unavailable.</div>;
+
+    const renderSection = (title: string, sectionMatches: HistoricalMatch[]) => {
+      if (sectionMatches.length === 0) return null;
+      const rounds = Array.from(new Set(sectionMatches.map(m => m.roundIndex))).sort((a, b) => (a || 0) - (b || 0));
+      
+      return (
+        <div className="mb-6 overflow-x-auto">
+          <h3 className="text-war-red font-orbitron text-[10px] font-bold uppercase mb-3 border-l-2 border-war-red pl-2">{title}</h3>
+          <div className="flex gap-4 min-w-max pb-4">
+            {rounds.map((roundIdx, displayIdx) => {
+              const roundMatches = sectionMatches.filter(m => m.roundIndex === roundIdx);
+              return (
+                <div key={roundIdx} className="flex flex-col gap-4 w-48">
+                  <div className="text-[9px] text-zinc-500 font-orbitron uppercase text-center bg-black/40 py-1 rounded">Round {displayIdx + 1}</div>
+                  {roundMatches.map(m => {
+                    const s1 = getScore(m, 'p1');
+                    const s2 = getScore(m, 'p2');
+                    return (
+                      <div 
+                        key={m.id} 
+                        onClick={() => setSelectedMatch(m)}
+                        className="bg-zinc-900 border border-zinc-800 p-2 rounded hover:border-war-red transition-all cursor-pointer shadow-lg"
+                      >
+                        <div className={`text-[11px] flex justify-between ${s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
+                          <span className="truncate max-w-[100px]">{m.player1}</span>
+                          <span>{s1}</span>
+                        </div>
+                        <div className="h-px bg-zinc-800 my-1"></div>
+                        <div className={`text-[11px] flex justify-between ${s2 > s1 ? 'text-green-400 font-bold' : 'text-zinc-400'}`}>
+                          <span className="truncate max-w-[100px]">{m.player2}</span>
+                          <span>{s2}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="animate-fade-in">
+        {renderSection("Winners Bracket", matches.filter(m => m.bracketType === 'winner' || !m.bracketType))}
+        {renderSection("Losers Bracket", matches.filter(m => m.bracketType === 'loser'))}
+        {renderSection("Finals", matches.filter(m => m.bracketType === 'final'))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-war-dark pb-20 p-4">
       {selectedMatch && <ScorecardModal match={selectedMatch} onClose={() => setSelectedMatch(null)} />}
@@ -470,36 +530,51 @@ export const History: React.FC = () => {
                  {tournamentGroups.length === 0 ? (
                     <div className="text-center text-zinc-500">No tournament games found.</div>
                  ) : (
-                    tournamentGroups.map(group => (
-                       <div key={group.id} className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
-                          <h2 className="text-xl font-orbitron text-white mb-4 border-b border-zinc-700 pb-2">Tournament: <span className="text-war-red">{group.id.split('_')[0]}</span></h2>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                             {group.matches.map(m => {
-                               const s1 = getScore(m, 'p1');
-                               const s2 = getScore(m, 'p2');
-                               return (
-                                 <div key={m.id} className="bg-black/30 p-3 rounded border border-zinc-800 hover:border-zinc-600 cursor-pointer" onClick={() => setSelectedMatch(m)}>
-                                    <div className="text-[10px] text-zinc-500 mb-2 flex justify-between">
-                                       <div className="flex gap-2 items-center">
-                                          <span>{new Date(m.date).toLocaleDateString()}</span>
-                                          {m.gameMode && (
-                                            <span className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold uppercase ${m.gameMode === 'Tournament' ? 'bg-blue-900/40 text-blue-300 border border-blue-800/50' : 'bg-amber-900/40 text-amber-300 border border-amber-800/50'}`}>
-                                              {m.gameMode}
-                                            </span>
-                                          )}
+                    tournamentGroups.map(group => {
+                        const isBracketView = bracketViews[group.id];
+                        return (
+                        <div key={group.id} className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
+                           <div className="flex justify-between items-center mb-4 border-b border-zinc-700 pb-2">
+                              <h2 className="text-xl font-orbitron text-white">Tournament: <span className="text-war-red">{group.id.split('_')[0]}</span></h2>
+                              <button 
+                                onClick={() => toggleBracketView(group.id)}
+                                className={`text-[10px] px-3 py-1 rounded font-orbitron uppercase transition-all ${isBracketView ? 'bg-war-red text-white' : 'bg-zinc-800 text-zinc-400 hover:text-white'}`}
+                              >
+                                {isBracketView ? 'List View' : 'Bracket View'}
+                              </button>
+                           </div>
+                           
+                           {isBracketView ? (
+                             renderTournamentBracket(group.matches)
+                           ) : (
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {group.matches.map(m => {
+                                  const s1 = getScore(m, 'p1');
+                                  const s2 = getScore(m, 'p2');
+                                  return (
+                                    <div key={m.id} className="bg-black/30 p-3 rounded border border-zinc-800 hover:border-zinc-600 cursor-pointer" onClick={() => setSelectedMatch(m)}>
+                                       <div className="text-[10px] text-zinc-500 mb-2 flex justify-between">
+                                          <div className="flex gap-2 items-center">
+                                             <span>{new Date(m.date).toLocaleDateString()}</span>
+                                             {m.gameMode && (
+                                               <span className={`px-1.5 py-0.5 rounded-[2px] text-[9px] font-bold uppercase ${m.gameMode === 'Tournament' ? 'bg-blue-900/40 text-blue-300 border border-blue-800/50' : 'bg-amber-900/40 text-amber-300 border border-amber-800/50'}`}>
+                                                 {m.gameMode}
+                                               </span>
+                                             )}
+                                          </div>
+                                       </div>
+                                       <div className="flex justify-between items-center text-sm">
+                                          <span className={s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player1} ({s1})</span>
+                                          <span className="text-zinc-600 text-xs px-2">VS</span>
+                                          <span className={s2 > s1 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player2} ({s2})</span>
                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center text-sm">
-                                       <span className={s1 > s2 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player1} ({s1})</span>
-                                       <span className="text-zinc-600 text-xs px-2">VS</span>
-                                       <span className={s2 > s1 ? 'text-green-400 font-bold' : 'text-zinc-400'}>{m.player2} ({s2})</span>
-                                    </div>
-                                 </div>
-                               );
-                             })}
-                          </div>
-                       </div>
-                    ))
+                                  );
+                                })}
+                             </div>
+                           )}
+                        </div>
+                      )})
                  )}
               </div>
           )}
