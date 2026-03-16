@@ -7,6 +7,16 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Select';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+const getScore = (m: HistoricalMatch, p: 'p1' | 'p2') => {
+  if (m.rawRounds && m.rawRounds.length > 0) {
+      const prim = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0), 0);
+      const sec = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].secondary)||0), 0);
+      const chal = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].challenger)||0), 0);
+      return Math.min(50, prim) + Math.min(40, sec) + chal;
+  }
+  return p === 'p1' ? Number(m.p1Score) || 0 : Number(m.p2Score) || 0;
+}
+
 export const History: React.FC = () => {
   const navigate = useNavigate();
   const [matches, setMatches] = useState<HistoricalMatch[]>([]);
@@ -25,6 +35,7 @@ export const History: React.FC = () => {
   
   // Scorecard Modal State
   const [selectedMatch, setSelectedMatch] = useState<HistoricalMatch | null>(null);
+  const [matchupPlayer, setMatchupPlayer] = useState<string>('all');
 
   const loadData = () => {
     setLoading(true);
@@ -127,16 +138,57 @@ export const History: React.FC = () => {
   }, [matches]);
 
   // --- Matchup Logic ---
-  const matchups = useMemo(() => {
-    const counts: Record<string, number> = {};
-    matches.forEach(m => {
-       const players = [m.player1, m.player2].sort();
-       const key = `${players[0]} vs ${players[1]}`;
-       counts[key] = (counts[key] || 0) + 1;
+  const playerMatchups = useMemo(() => {
+    const results: Record<string, Record<string, { wins: number, losses: number, draws: number, total: number }>> = {};
+    
+    // Filter matches based on criteria
+    const filteredMatches = matches.filter(m => {
+      const pointsMatch = winrateFilter === 'all' || 
+                         (winrateFilter === '2000' && m.points === 2000) || 
+                         (winrateFilter === 'sub2000' && m.points < 2000);
+      
+      const modeMatch = gameModeFilter === 'all' || m.gameMode === gameModeFilter;
+      
+      return pointsMatch && modeMatch;
     });
-    return Object.entries(counts)
-      .map(([matchup, count]) => ({ matchup, count }))
-      .sort((a, b) => b.count - a.count);
+
+    filteredMatches.forEach(m => {
+      const p1 = m.player1;
+      const p2 = m.player2;
+      
+      if (!results[p1]) results[p1] = {};
+      if (!results[p2]) results[p2] = {};
+      
+      if (!results[p1][p2]) results[p1][p2] = { wins: 0, losses: 0, draws: 0, total: 0 };
+      if (!results[p2][p1]) results[p2][p1] = { wins: 0, losses: 0, draws: 0, total: 0 };
+      
+      const s1 = getScore(m, 'p1');
+      const s2 = getScore(m, 'p2');
+      
+      results[p1][p2].total++;
+      results[p2][p1].total++;
+      
+      if (s1 > s2) {
+        results[p1][p2].wins++;
+        results[p2][p1].losses++;
+      } else if (s1 < s2) {
+        results[p1][p2].losses++;
+        results[p2][p1].wins++;
+      } else {
+        results[p1][p2].draws++;
+        results[p2][p1].draws++;
+      }
+    });
+    return results;
+  }, [matches, winrateFilter, gameModeFilter]);
+
+  const allPlayersList = useMemo(() => {
+    const players = new Set<string>();
+    matches.forEach(m => {
+      if (m.player1) players.add(m.player1);
+      if (m.player2) players.add(m.player2);
+    });
+    return Array.from(players).sort();
   }, [matches]);
 
   // --- Player Average Graph Logic ---
@@ -213,16 +265,6 @@ export const History: React.FC = () => {
   const allPlayers = Array.from(new Set(matches.flatMap(m => [m.player1, m.player2]))).sort();
   const allGameOptions = matches.map(m => ({ label: `${m.date.split('T')[0]}: ${m.player1} vs ${m.player2}`, value: String(m.id) }));
 
-  const getScore = (m: HistoricalMatch, p: 'p1' | 'p2') => {
-      if (m.rawRounds && m.rawRounds.length > 0) {
-          const prim = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].primary)||0), 0);
-          const sec = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].secondary)||0), 0);
-          const chal = m.rawRounds.reduce((acc, r) => acc + (Number(r[p].challenger)||0), 0);
-          return Math.min(50, prim) + Math.min(40, sec) + chal;
-      }
-      return p === 'p1' ? m.p1Score : m.p2Score;
-  }
-
   // --- SCORECARD COMPONENT ---
   const ScorecardModal: React.FC<{ match: HistoricalMatch; onClose: () => void }> = ({ match, onClose }) => {
     if (!match.rawRounds) return null;
@@ -266,7 +308,7 @@ export const History: React.FC = () => {
     const s2Total = getScore(match, 'p2');
     const winner = s1Total > s2Total ? match.player1 : (s2Total > s1Total ? match.player2 : "Draw");
 
-    const ScoreRow: React.FC<{ label: string, data: any[], type: 'p1'|'p2' }> = ({ label, data, type }) => {
+    const ScoreRow: React.FC<{ label: string, data: any[], type: 'p1'|'p2' }> = ({ label, data }) => {
       const total = data.reduce((a,b) => a+b, 0);
       return (
         <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-b border-zinc-800 hover:bg-white/5">
@@ -581,27 +623,98 @@ export const History: React.FC = () => {
 
           {/* MATCHUPS VIEW */}
           {view === 'matchups' && (
-              <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
-                 <h2 className="text-xl font-orbitron text-white mb-4 border-b border-zinc-700 pb-2">Most Played Matchups</h2>
-                 <div className="overflow-x-auto">
-                   <table className="w-full text-left border-collapse">
-                     <thead>
-                       <tr className="text-war-gray text-xs font-orbitron uppercase border-b border-zinc-700">
-                         <th className="p-3">Matchup</th>
-                         <th className="p-3 text-right">Times Played</th>
-                       </tr>
-                     </thead>
-                     <tbody>
-                       {matchups.length === 0 ? (
-                         <tr><td colSpan={2} className="p-4 text-center text-zinc-500">No matches recorded yet.</td></tr>
-                       ) : matchups.map((m, idx) => (
-                         <tr key={idx} className="border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors text-sm font-mono text-gray-300">
-                           <td className="p-3 font-bold text-white">{m.matchup}</td>
-                           <td className="p-3 text-right font-orbitron text-war-red">{m.count}</td>
-                         </tr>
-                       ))}
-                     </tbody>
-                   </table>
+              <div className="space-y-6">
+                 <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 shadow-xl">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-6 border-b border-zinc-700 pb-4">
+                       <h2 className="text-xl font-orbitron text-white">Player Matchups</h2>
+                       <div className="flex flex-wrap gap-4 justify-center items-center">
+                          <div className="flex gap-2 bg-black/20 p-1 rounded border border-zinc-800">
+                            {['all', '2000', 'sub2000'].map(f => (
+                              <button 
+                                 key={f}
+                                 onClick={() => setWinrateFilter(f as any)} 
+                                 className={`text-[10px] px-2 py-1 rounded transition-colors uppercase font-bold ${winrateFilter === f ? 'bg-war-red text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                              >
+                                {f === 'all' ? 'All Pts' : f === '2000' ? '2000' : '<2000'}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex gap-2 bg-black/20 p-1 rounded border border-zinc-800">
+                            {['all', 'Tournament', 'Colosseum'].map(f => (
+                              <button 
+                                 key={f}
+                                 onClick={() => setGameModeFilter(f as any)} 
+                                 className={`text-[10px] px-2 py-1 rounded transition-colors uppercase font-bold ${gameModeFilter === f ? 'bg-war-red text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                              >
+                                {f}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="h-6 w-px bg-zinc-800 hidden md:block"></div>
+                          <div className="flex items-center gap-2">
+                             <span className="text-xs text-zinc-500 uppercase font-orbitron">Player:</span>
+                             <select 
+                               value={matchupPlayer}
+                               onChange={(e) => setMatchupPlayer(e.target.value)}
+                               className="bg-black border border-zinc-800 text-white text-xs rounded px-3 py-1.5 focus:outline-none focus:border-war-red"
+                             >
+                                <option value="all">All Players</option>
+                                {allPlayersList.map(p => (
+                                  <option key={p} value={p}>{p}</option>
+                                ))}
+                             </select>
+                          </div>
+                       </div>
+                    </div>
+
+                    <div className="space-y-8">
+                       {Object.keys(playerMatchups).length === 0 ? (
+                         <div className="text-center text-zinc-500 py-10">No matches recorded yet.</div>
+                       ) : (
+                         Object.entries(playerMatchups)
+                           .filter(([player]) => matchupPlayer === 'all' || player === matchupPlayer)
+                           .sort(([a], [b]) => a.localeCompare(b))
+                           .map(([player, opponents]) => (
+                             <div key={player} className="bg-black/20 rounded-lg border border-zinc-800 overflow-hidden">
+                                <div className="bg-zinc-900/50 px-4 py-2 border-b border-zinc-800 flex justify-between items-center">
+                                   <h3 className="text-war-red font-orbitron text-sm font-bold uppercase">{player}</h3>
+                                   <span className="text-[10px] text-zinc-500 uppercase">Opponent Statistics</span>
+                                </div>
+                                <div className="overflow-x-auto">
+                                   <table className="w-full text-left border-collapse">
+                                      <thead>
+                                         <tr className="text-zinc-500 text-[10px] font-orbitron uppercase border-b border-zinc-800">
+                                            <th className="p-3">Opponent</th>
+                                            <th className="p-3 text-center">Played</th>
+                                            <th className="p-3 text-center">W</th>
+                                            <th className="p-3 text-center">D</th>
+                                            <th className="p-3 text-center">L</th>
+                                            <th className="p-3 text-right">Win %</th>
+                                         </tr>
+                                      </thead>
+                                      <tbody>
+                                         {Object.entries(opponents)
+                                           .sort(([, a], [, b]) => b.total - a.total)
+                                           .map(([opponent, stats]) => {
+                                             const winRate = ((stats.wins / stats.total) * 100).toFixed(1);
+                                             return (
+                                               <tr key={opponent} className="border-b border-zinc-900/50 hover:bg-zinc-800/30 transition-colors text-xs font-mono text-gray-300">
+                                                  <td className="p-3 font-bold text-zinc-200">{opponent}</td>
+                                                  <td className="p-3 text-center">{stats.total}</td>
+                                                  <td className="p-3 text-center text-green-400">{stats.wins}</td>
+                                                  <td className="p-3 text-center text-zinc-500">{stats.draws}</td>
+                                                  <td className="p-3 text-center text-red-400">{stats.losses}</td>
+                                                  <td className="p-3 text-right font-orbitron text-war-red">{winRate}%</td>
+                                               </tr>
+                                             );
+                                           })}
+                                      </tbody>
+                                   </table>
+                                </div>
+                             </div>
+                           ))
+                       )}
+                    </div>
                  </div>
               </div>
           )}
