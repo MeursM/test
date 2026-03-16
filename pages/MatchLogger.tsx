@@ -1,7 +1,7 @@
 
 
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate, useLocation, useBlocker } from 'react-router-dom';
 import { ARMY_DATA, MISSIONS, PLAYERS } from '../constants';
 import { MatchState, INITIAL_PLAYER_ROUND } from '../types';
 import { submitMatchData } from '../services/sheetsService';
@@ -10,6 +10,7 @@ import { Select } from '../components/ui/Select';
 import { Button } from '../components/ui/Button';
 import { RoundInput } from '../components/RoundInput';
 import { MatchGraphs } from '../components/MatchGraphs';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 const INITIAL_STATE: MatchState = {
   points: 2000,
@@ -46,6 +47,35 @@ export const MatchLogger: React.FC = () => {
     return saved ? JSON.parse(saved) : INITIAL_STATE;
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+
+  // Determine if the form is "dirty" (has unsaved data that would be lost)
+  // For tournament matches, ANY data is dirty because it's not auto-saved to localStorage.
+  // For standard matches, it's auto-saved, but we still warn to be safe.
+  const isTournamentMode = !!matchData.tournamentId;
+  const hasData = matchData.player1 !== '' || matchData.player2 !== '' || matchData.army1 !== '' || matchData.army2 !== '';
+  const isDirty = (isTournamentMode && hasData) || (!isTournamentMode && hasData && activeTab !== 'setup');
+
+  // Block internal navigation if dirty
+  const blocker = useBlocker(
+    useCallback(
+      ({ currentLocation, nextLocation }: { currentLocation: any; nextLocation: any }) =>
+        isDirty && currentLocation.pathname !== nextLocation.pathname,
+      [isDirty]
+    )
+  );
+
+  // Handle external navigation (refresh, close tab)
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   // Auto-save (Skip if in tournament mode to avoid overwriting standard local save, or use separate key)
   useEffect(() => {
@@ -94,10 +124,14 @@ export const MatchLogger: React.FC = () => {
   };
 
   const handleClear = () => {
-    if(confirm("Are you sure you want to clear all data?")) {
-      setMatchData(INITIAL_STATE);
-      setActiveTab('setup');
-    }
+    setShowResetModal(true);
+  };
+
+  const confirmReset = () => {
+    setMatchData(INITIAL_STATE);
+    localStorage.removeItem('battleforge_match_v1');
+    setActiveTab('setup');
+    setShowResetModal(false);
   };
 
   const handleSubmit = async () => {
@@ -165,8 +199,6 @@ export const MatchLogger: React.FC = () => {
   const activeRoundNum = typeof activeTab === 'number' ? activeTab : 1;
   const p1Prior = getPriorScores(activeRoundNum, 'p1');
   const p2Prior = getPriorScores(activeRoundNum, 'p2');
-
-  const isTournamentMode = !!matchData.tournamentId;
 
   return (
     <div className="min-h-screen pb-20">
@@ -309,6 +341,30 @@ export const MatchLogger: React.FC = () => {
            </button>
          ))}
       </nav>
+
+      {/* Navigation Guard Modal */}
+      <ConfirmationModal
+        isOpen={blocker.state === 'blocked'}
+        title="Unsaved Changes"
+        message="You have unsaved match data. If you leave now, your progress for this match might be lost. Are you sure you want to leave?"
+        confirmText="Leave Page"
+        cancelText="Stay Here"
+        variant="danger"
+        onConfirm={() => blocker.proceed?.()}
+        onCancel={() => blocker.reset?.()}
+      />
+
+      {/* Reset Data Modal */}
+      <ConfirmationModal
+        isOpen={showResetModal}
+        title="Reset Match Data?"
+        message="This will clear all current scores and setup information. This action cannot be undone."
+        confirmText="Reset Everything"
+        cancelText="Cancel"
+        variant="danger"
+        onConfirm={confirmReset}
+        onCancel={() => setShowResetModal(false)}
+      />
     </div>
   );
 };
