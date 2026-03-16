@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { PlayerRoundData, ArmyData, ScoringRule, ScoringGroup } from '../types';
+import { PlayerRoundData, ArmyData, ScoringRule } from '../types';
 import { GENERAL_STRATAGEMS, DETACHMENT_STRATAGEMS, SECONDARIES, SECONDARY_SCORING, PRIMARY_SCORING } from '../constants';
 import { Input } from './ui/Input';
 import { Select } from './ui/Select';
@@ -120,7 +120,7 @@ const ScoreControl: React.FC<{
 
   }, [value, rule, manualSelection]);
 
-  const handleAdditiveToggle = (groupIndex: number, buttonIndex: number, btnVal: number, isActive: boolean) => {
+  const handleAdditiveToggle = (groupIndex: number, buttonIndex: number, isActive: boolean) => {
     const groups = rule.groups || (rule.buttons ? [{ buttons: rule.buttons }] : []);
     
     // Start with current visual state
@@ -196,7 +196,7 @@ const ScoreControl: React.FC<{
                    return (
                      <button
                        key={bIdx}
-                       onClick={() => handleAdditiveToggle(gIdx, bIdx, btn, !!isActive)}
+                       onClick={() => handleAdditiveToggle(gIdx, bIdx, !!isActive)}
                        className={`
                           w-12 h-12 rounded font-bold text-lg transition-all transform active:scale-95 border
                           ${isActive 
@@ -245,7 +245,7 @@ const ScoreControl: React.FC<{
 };
 
 export const RoundInput: React.FC<RoundInputProps> = ({ 
-  playerData, playerName, armyData, detachmentName, roundNumber, primaryMission, onChange, isPlayer2, startingCp,
+  playerData, playerName, armyData, detachmentName, primaryMission, onChange, isPlayer2, startingCp,
   priorPrimary, priorSecondary
 }) => {
   

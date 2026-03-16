@@ -78,10 +78,10 @@ export const submitMatchData = async (matchState: MatchState) => {
   });
 
   try {
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
+    await fetch(GOOGLE_SCRIPT_URL, {
       method: 'POST',
       mode: 'no-cors', 
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(flatData)
     });
     return true;
@@ -143,5 +143,70 @@ export const getMatchHistory = async (): Promise<HistoricalMatch[] | null> => {
   } catch (error) {
     console.error("Fetch history error:", error);
     return null; 
+  }
+};
+
+// --- Tournament Persistence ---
+
+export const getTournaments = async (): Promise<any[] | null> => {
+  try {
+    const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=getTournaments&t=${Date.now()}`, {
+      method: 'GET',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Fetch tournaments error:", error);
+    return null;
+  }
+};
+
+export const saveTournament = async (tournament: any) => {
+  try {
+    // We use a POST with a special 'action' field in the body
+    // Note: GAS doPost doesn't support query params easily with no-cors, 
+    // so we include the action in the JSON payload.
+    console.log("Saving tournament to sheets:", tournament.id);
+    const payload = {
+      action: 'saveTournament',
+      tournamentId: tournament.id,
+      data: JSON.stringify(tournament)
+    };
+
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch (error) {
+    console.error("Save tournament error:", error);
+    throw error;
+  }
+};
+
+export const deleteTournamentFromSheet = async (tournamentId: string) => {
+  try {
+    const payload = {
+      action: 'deleteTournament',
+      tournamentId: tournamentId
+    };
+
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    return true;
+  } catch (error) {
+    console.error("Delete tournament error:", error);
+    throw error;
   }
 };

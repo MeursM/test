@@ -1,44 +1,100 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { PLAYERS } from '../constants';
 import { Tournament, TournamentMatch } from '../types';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { getTournaments, saveTournament, deleteTournamentFromSheet } from '../services/sheetsService';
+import { Loader2, RefreshCw, Trophy, Users, Calendar, Trash2, Plus } from 'lucide-react';
 
 export const TournamentHub: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTournament, setActiveTournament] = useState<Tournament | null>(null);
+  const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isProcessingResult, setIsProcessingResult] = useState(false);
+  
+  const [view, setView] = useState<'list' | 'create' | 'active'>('list');
+  
   const [newTourneyName, setNewTourneyName] = useState('');
   const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [tourneyType, setTourneyType] = useState<'single' | 'double'>('single');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Load active tournament
-  useEffect(() => {
-    const saved = localStorage.getItem('battleforge_active_tournament');
-    if (saved) {
-      const tourney = JSON.parse(saved);
-      setActiveTournament(tourney);
+  // Load tournaments from sheets
+  const fetchTournaments = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const data = await getTournaments();
+      if (data) {
+        const parsed: Tournament[] = data.map(t => {
+          let tourneyObj: any = null;
+          if (typeof t.data === 'string') {
+            try {
+              tourneyObj = JSON.parse(t.data);
+            } catch (e) {
+              console.error("Failed to parse tournament data for ID:", t.id);
+            }
+          } else if (t.data && typeof t.data === 'object') {
+            tourneyObj = t.data;
+          }
+
+          if (tourneyObj) {
+            // Ensure ID consistency
+            if (!tourneyObj.id) tourneyObj.id = t.id;
+            return tourneyObj as Tournament;
+          }
+          return null;
+        }).filter((t): t is Tournament => t !== null);
+
+        setAllTournaments(parsed);
+        
+        const savedId = localStorage.getItem('battleforge_active_tournament_id');
+        if (savedId) {
+          const found = parsed.find(t => t.id === savedId);
+          if (found) {
+            setActiveTournament(found);
+            setView('active');
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch tournaments:", error);
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    fetchTournaments();
+  }, [fetchTournaments]);
+
   // Handle return from MatchLogger with results
   useEffect(() => {
-    if (location.state && location.state.completedMatchId && location.state.winner) {
-      // CRITICAL FIX: Wait for activeTournament to be loaded from localStorage
-      // If we navigate/clear state before 'activeTournament' is set, the update is lost.
-      if (!activeTournament) return;
+    if (location.state && location.state.completedMatchId && location.state.winner && !isProcessingResult) {
+      // If we are still loading, wait for it to finish
+      if (isLoading) return;
+
+      if (!activeTournament) {
+        console.warn("Match completed but no active tournament found to apply it to.");
+        // Clear the state to prevent infinite loops/warnings
+        navigate(location.pathname, { replace: true, state: {} });
+        return;
+      }
 
       const { completedMatchId, winner } = location.state;
       
-      handleMatchCompletion(completedMatchId, winner);
-
-      // Only clear the state AFTER we have successfully processed it
-      navigate(location.pathname, { replace: true, state: {} });
+      // Prevent double processing
+      setIsProcessingResult(true);
+      handleMatchCompletion(completedMatchId, winner).finally(() => {
+        setIsProcessingResult(false);
+        navigate(location.pathname, { replace: true, state: {} });
+      });
     }
-  }, [location.state, activeTournament, navigate, location.pathname]);
+  }, [location.state, activeTournament, isLoading, navigate, location.pathname, isProcessingResult]);
 
   // --- Core Logic: Advance Players ---
   
@@ -115,31 +171,34 @@ export const TournamentHub: React.FC = () => {
     }
   };
 
-  const handleMatchCompletion = (matchId: string, winner: string | null) => {
+  const handleMatchCompletion = async (matchId: string, winner: string | null) => {
     if (!activeTournament || !winner) return;
 
     const newMatches = JSON.parse(JSON.stringify(activeTournament.matches)); 
     const match = newMatches.find((m: TournamentMatch) => m.id === matchId);
     
-    // If match is already completed with same winner, ignore
     if (match && match.status === 'completed' && match.winner === winner) return;
     
     if (match) {
         match.winner = winner;
         match.status = 'completed';
     
-        // 1. Settle the immediate match result
         settleBracket(newMatches);
-        
-        // 2. Prune any new Bye scenarios (e.g. if a Bye dropped to Loser Bracket)
         const pruned = pruneBracket(newMatches);
-        
-        // 3. Final settle to ensure everything propagated
         settleBracket(pruned);
     
         const updatedTourney = { ...activeTournament, matches: pruned };
         setActiveTournament(updatedTourney);
-        localStorage.setItem('battleforge_active_tournament', JSON.stringify(updatedTourney));
+        
+        // Persist to Sheets
+        setIsSaving(true);
+        try {
+          await saveTournament(updatedTourney);
+        } catch (e) {
+          console.error("Failed to sync tournament:", e);
+        } finally {
+          setIsSaving(false);
+        }
     }
   };
 
@@ -393,7 +452,7 @@ export const TournamentHub: React.FC = () => {
     return { matches, rounds: lbRoundIndex };
   };
 
-  const createTournament = () => {
+  const createTournament = async () => {
     if (!newTourneyName || selectedPlayers.length < 2) {
       alert("Enter name and select at least 2 players.");
       return;
@@ -408,16 +467,8 @@ export const TournamentHub: React.FC = () => {
     }
 
     let matches = result.matches;
-
-    // 1. Initial Settle: Push Names to initial matches
-    // This fills the "Player vs Bye" slots with actual names in WB R0
     settleBracket(matches);
-
-    // 2. Structural Prune with Injection: 
-    // This collapses the bracket by auto-resolving Bye matches and pushing results downstream
     matches = pruneBracket(matches);
-    
-    // 3. Final Settle: Propagate any remaining states
     settleBracket(matches);
 
     const newTourney: Tournament = {
@@ -431,8 +482,31 @@ export const TournamentHub: React.FC = () => {
       dateCreated: new Date().toISOString()
     };
 
-    setActiveTournament(newTourney);
-    localStorage.setItem('battleforge_active_tournament', JSON.stringify(newTourney));
+    setIsSaving(true);
+    try {
+      await saveTournament(newTourney);
+      setActiveTournament(newTourney);
+      localStorage.setItem('battleforge_active_tournament_id', newTourney.id);
+      setView('active');
+      fetchTournaments(); // Refresh list in background
+    } catch (e) {
+      alert("Failed to save tournament to sheets. Check your connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const selectTournament = (t: Tournament) => {
+    setActiveTournament(t);
+    localStorage.setItem('battleforge_active_tournament_id', t.id);
+    setView('active');
+  };
+
+  const handleBackToList = () => {
+    setActiveTournament(null);
+    localStorage.removeItem('battleforge_active_tournament_id');
+    setView('list');
+    fetchTournaments();
   };
 
   const handlePlayerToggle = (p: string) => {
@@ -440,13 +514,24 @@ export const TournamentHub: React.FC = () => {
     else setSelectedPlayers([...selectedPlayers, p]);
   };
 
-  const confirmDelete = () => {
-     localStorage.removeItem('battleforge_active_tournament');
-     setActiveTournament(null);
-     setNewTourneyName('');
-     setSelectedPlayers([]);
-     setShowDeleteModal(false);
-     navigate('/tournament', { replace: true, state: {} });
+  const confirmDelete = async () => {
+     if (!activeTournament) return;
+     
+     setIsSaving(true);
+     try {
+       await deleteTournamentFromSheet(activeTournament.id);
+       localStorage.removeItem('battleforge_active_tournament_id');
+       setActiveTournament(null);
+       setNewTourneyName('');
+       setSelectedPlayers([]);
+       setShowDeleteModal(false);
+       setView('list');
+       fetchTournaments();
+     } catch (e) {
+       alert("Failed to delete tournament.");
+     } finally {
+       setIsSaving(false);
+     }
   };
 
   const startMatch = (m: TournamentMatch) => {
@@ -528,6 +613,14 @@ export const TournamentHub: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-war-dark pb-20 p-4">
+      {/* Syncing Overlay */}
+      {isSaving && (
+        <div className="fixed top-4 right-4 z-[100] bg-war-panel border border-war-red/50 rounded-lg px-4 py-2 shadow-lg flex items-center gap-3 animate-pulse">
+          <Loader2 className="w-4 h-4 animate-spin text-war-red" />
+          <span className="text-xs font-orbitron text-white uppercase tracking-wider">Syncing with Sheets...</span>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -539,7 +632,10 @@ export const TournamentHub: React.FC = () => {
                 </p>
                 <div className="flex gap-3 justify-end">
                     <Button variant="secondary" onClick={() => setShowDeleteModal(false)} className="text-xs">Cancel</Button>
-                    <Button variant="danger" onClick={confirmDelete} className="text-xs bg-red-600 hover:bg-red-700">Yes, Delete It</Button>
+                    <Button variant="danger" onClick={confirmDelete} className="text-xs bg-red-600 hover:bg-red-700" disabled={isSaving}>
+                      {isSaving ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                      Yes, Delete It
+                    </Button>
                 </div>
             </div>
         </div>
@@ -549,12 +645,91 @@ export const TournamentHub: React.FC = () => {
         <h1 className="text-2xl font-orbitron font-bold text-war-red">
           TOURNAMENT<span className="text-white">HUB</span>
         </h1>
-        <Button variant="secondary" onClick={() => navigate('/')} className="text-xs py-2 px-3">&larr; App</Button>
+        <div className="flex gap-2">
+          {view !== 'list' && (
+            <Button variant="secondary" onClick={handleBackToList} className="text-xs py-2 px-3">
+              &larr; All Brackets
+            </Button>
+          )}
+          <Button variant="secondary" onClick={() => navigate('/')} className="text-xs py-2 px-3">App</Button>
+        </div>
       </header>
 
-      {!activeTournament ? (
+      {isLoading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
+          <Loader2 className="w-10 h-10 animate-spin mb-4 text-war-red" />
+          <p className="font-orbitron text-sm uppercase tracking-widest">Loading Brackets...</p>
+        </div>
+      ) : view === 'list' ? (
+        <div className="max-w-4xl mx-auto animate-fade-in">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-orbitron text-white uppercase tracking-tight">Active Brackets</h2>
+            <div className="flex gap-2">
+              <button 
+                onClick={fetchTournaments}
+                className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+              <Button onClick={() => setView('create')} className="text-xs">
+                <Plus className="w-4 h-4 mr-2" /> New Bracket
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {allTournaments.length === 0 ? (
+              <div className="col-span-full bg-war-panel border border-zinc-800 rounded-xl p-12 text-center">
+                <Trophy className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
+                <p className="text-zinc-500 font-orbitron text-sm uppercase">No tournaments found</p>
+                <Button onClick={() => setView('create')} variant="secondary" className="mt-4 text-xs">Create the first one</Button>
+              </div>
+            ) : (
+              allTournaments.sort((a,b) => new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime()).map(t => (
+                <div 
+                  key={t.id}
+                  onClick={() => selectTournament(t)}
+                  className="bg-war-panel border border-zinc-700 rounded-xl p-5 cursor-pointer hover:border-war-red transition-all group shadow-lg"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-orbitron font-bold text-white group-hover:text-war-red transition-colors">{t.name}</h3>
+                      <div className="flex items-center gap-3 mt-1">
+                        <span className={`text-[10px] px-2 py-0.5 rounded uppercase font-bold ${t.type === 'double' ? 'bg-indigo-900/30 text-indigo-300 border border-indigo-800' : 'bg-amber-900/30 text-amber-300 border border-amber-800'}`}>
+                          {t.type} Elim
+                        </span>
+                        <span className="text-[10px] text-zinc-500 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" /> {new Date(t.dateCreated).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                    <Trophy className="w-6 h-6 text-zinc-700 group-hover:text-war-red transition-colors" />
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-xs text-zinc-400 bg-black/20 p-2 rounded border border-zinc-800">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3 h-3" />
+                      <span>{t.participants.length} Players</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${t.status === 'active' ? 'bg-green-500 animate-pulse' : 'bg-zinc-600'}`}></div>
+                      <span className="uppercase font-bold text-[10px]">{t.status}</span>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      ) : view === 'create' ? (
         <div className="bg-war-panel border border-zinc-700 rounded-lg p-6 max-w-2xl mx-auto shadow-xl animate-fade-in">
-           <h2 className="text-xl font-orbitron text-white mb-4">Create New Tournament</h2>
+           <div className="flex items-center gap-3 mb-6">
+             <div className="p-2 bg-war-red/10 rounded-lg">
+               <Trophy className="w-6 h-6 text-war-red" />
+             </div>
+             <h2 className="text-xl font-orbitron text-white">Create New Tournament</h2>
+           </div>
            
            <div className="space-y-4">
              <Input label="Tournament Name" value={newTourneyName} onChange={e => setNewTourneyName(e.target.value)} placeholder="e.g. Summer Slam 2024" />
@@ -562,8 +737,8 @@ export const TournamentHub: React.FC = () => {
              <div className="flex flex-col gap-1">
                <label className="text-war-gray text-xs font-orbitron uppercase">Format</label>
                <div className="flex gap-2">
-                 <button onClick={() => setTourneyType('single')} className={`flex-1 py-2 rounded border transition-all ${tourneyType === 'single' ? 'bg-war-red border-war-red text-white' : 'bg-zinc-800 border-zinc-700 text-gray-400'}`}>Single Elimination</button>
-                 <button onClick={() => setTourneyType('double')} className={`flex-1 py-2 rounded border transition-all ${tourneyType === 'double' ? 'bg-war-red border-war-red text-white' : 'bg-zinc-800 border-zinc-700 text-gray-400'}`}>Double Elimination</button>
+                 <button onClick={() => setTourneyType('single')} className={`flex-1 py-2 rounded border transition-all font-orbitron text-xs uppercase ${tourneyType === 'single' ? 'bg-war-red border-war-red text-white shadow-[0_0_10px_rgba(255,45,45,0.3)]' : 'bg-zinc-800 border-zinc-700 text-gray-400'}`}>Single Elimination</button>
+                 <button onClick={() => setTourneyType('double')} className={`flex-1 py-2 rounded border transition-all font-orbitron text-xs uppercase ${tourneyType === 'double' ? 'bg-war-red border-war-red text-white shadow-[0_0_10px_rgba(255,45,45,0.3)]' : 'bg-zinc-800 border-zinc-700 text-gray-400'}`}>Double Elimination</button>
                </div>
              </div>
 
@@ -574,7 +749,7 @@ export const TournamentHub: React.FC = () => {
                    <button 
                      key={p} 
                      onClick={() => handlePlayerToggle(p)}
-                     className={`text-xs p-2 rounded text-left transition-colors ${selectedPlayers.includes(p) ? 'bg-green-900/50 text-green-200 border border-green-700' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
+                     className={`text-xs p-2 rounded text-left transition-colors font-medium ${selectedPlayers.includes(p) ? 'bg-green-900/50 text-green-200 border border-green-700' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}
                    >
                      {p}
                    </button>
@@ -582,7 +757,11 @@ export const TournamentHub: React.FC = () => {
                </div>
              </div>
 
-             <Button onClick={createTournament} className="w-full mt-4">Generate Bracket</Button>
+             <Button onClick={createTournament} className="w-full mt-4" disabled={isSaving}>
+               {isSaving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
+               Generate & Share Bracket
+             </Button>
+             <Button variant="secondary" onClick={() => setView('list')} className="w-full">Cancel</Button>
            </div>
         </div>
       ) : (
@@ -590,20 +769,34 @@ export const TournamentHub: React.FC = () => {
            {/* Sticky header updated with z-index and background to ensure clickable buttons */}
            <div className="flex justify-between items-center mb-4 min-w-[600px] sticky left-0 z-10 bg-war-dark p-2 border-b border-zinc-800">
              <div>
-               <h2 className="text-2xl font-bold font-orbitron text-white">{activeTournament.name}</h2>
-               <div className="text-xs text-zinc-500">Status: {activeTournament.status} | Type: {activeTournament.type}</div>
+               <div className="flex items-center gap-2">
+                 <h2 className="text-2xl font-bold font-orbitron text-white">{activeTournament?.name}</h2>
+                 {isSaving && <Loader2 className="w-4 h-4 animate-spin text-war-red" />}
+               </div>
+               <div className="text-xs text-zinc-500">Status: {activeTournament?.status} | Type: {activeTournament?.type}</div>
              </div>
-             <Button variant="danger" onClick={() => setShowDeleteModal(true)} className="text-xs py-1 px-3 bg-red-800 hover:bg-red-700 text-white border-red-900 shadow-lg">Delete Tournament</Button>
+             <div className="flex gap-2">
+               <button 
+                 onClick={fetchTournaments}
+                 className="p-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-zinc-400 transition-colors"
+                 title="Sync"
+               >
+                 <RefreshCw className="w-4 h-4" />
+               </button>
+               <Button variant="danger" onClick={() => setShowDeleteModal(true)} className="text-xs py-1 px-3 bg-red-800 hover:bg-red-700 text-white border-red-900 shadow-lg">
+                 <Trash2 className="w-3 h-3 mr-2" /> Delete
+               </Button>
+             </div>
            </div>
 
            {/* Render Brackets Split by Type */}
-           {activeTournament.type === 'single' ? (
+           {activeTournament?.type === 'single' ? (
               renderBracketSection("Bracket", activeTournament.matches)
            ) : (
               <div>
-                {renderBracketSection("Winners Bracket", activeTournament.matches.filter(m => m.bracketType === 'winner'))}
-                {renderBracketSection("Losers Bracket", activeTournament.matches.filter(m => m.bracketType === 'loser'))}
-                {renderBracketSection("Finals", activeTournament.matches.filter(m => m.bracketType === 'final'))}
+                {renderBracketSection("Winners Bracket", activeTournament?.matches.filter(m => m.bracketType === 'winner') || [])}
+                {renderBracketSection("Losers Bracket", activeTournament?.matches.filter(m => m.bracketType === 'loser') || [])}
+                {renderBracketSection("Finals", activeTournament?.matches.filter(m => m.bracketType === 'final') || [])}
               </div>
            )}
         </div>
