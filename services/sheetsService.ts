@@ -39,9 +39,13 @@ export const submitMatchData = async (matchState: MatchState) => {
     flatData[`p1_primary_${i}`] = round.p1.primary;
     flatData[`p1_secondary1_name_${i}`] = round.p1.secondary1_name;
     flatData[`p1_secondary1_pts_${i}`] = round.p1.secondary1_pts;
+    flatData[`p1_secondary1_discarded_${i}`] = round.p1.secondary1_discarded;
     flatData[`p1_secondary2_name_${i}`] = round.p1.secondary2_name;
     flatData[`p1_secondary2_pts_${i}`] = round.p1.secondary2_pts;
-    flatData[`p1_secondary_${i}`] = round.p1.secondary1_pts + round.p1.secondary2_pts; // Sum needed by backend
+    flatData[`p1_secondary2_discarded_${i}`] = round.p1.secondary2_discarded;
+    flatData[`p1_secondary3_name_${i}`] = round.p1.secondary3_name;
+    flatData[`p1_secondary3_pts_${i}`] = round.p1.secondary3_pts;
+    flatData[`p1_secondary_${i}`] = round.p1.secondary1_pts + round.p1.secondary2_pts + (round.p1.secondary3_pts || 0); // Sum needed by backend
     flatData[`p1_challenger_${i}`] = round.p1.challenger;
     
     // Calculate Total CP Earned for the round
@@ -60,9 +64,13 @@ export const submitMatchData = async (matchState: MatchState) => {
     flatData[`p2_primary_${i}`] = round.p2.primary;
     flatData[`p2_secondary1_name_${i}`] = round.p2.secondary1_name;
     flatData[`p2_secondary1_pts_${i}`] = round.p2.secondary1_pts;
+    flatData[`p2_secondary1_discarded_${i}`] = round.p2.secondary1_discarded;
     flatData[`p2_secondary2_name_${i}`] = round.p2.secondary2_name;
     flatData[`p2_secondary2_pts_${i}`] = round.p2.secondary2_pts;
-    flatData[`p2_secondary_${i}`] = round.p2.secondary1_pts + round.p2.secondary2_pts;
+    flatData[`p2_secondary2_discarded_${i}`] = round.p2.secondary2_discarded;
+    flatData[`p2_secondary3_name_${i}`] = round.p2.secondary3_name;
+    flatData[`p2_secondary3_pts_${i}`] = round.p2.secondary3_pts;
+    flatData[`p2_secondary_${i}`] = round.p2.secondary1_pts + round.p2.secondary2_pts + (round.p2.secondary3_pts || 0);
     flatData[`p2_challenger_${i}`] = round.p2.challenger;
 
     const p2CpFromTurn = (round.p2.cpEarnedTurn1 ? 1 : 0) + (round.p2.cpEarnedTurn2 ? 1 : 0);

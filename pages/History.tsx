@@ -275,10 +275,11 @@ export const History: React.FC = () => {
          const d = r[player];
          if (d.secondary1Name) set.add(d.secondary1Name);
          if (d.secondary2Name) set.add(d.secondary2Name);
+         if (d.secondary3Name) set.add(d.secondary3Name);
       });
       const list = Array.from(set);
       if (list.length === 0) {
-         const totalSecPoints = match.rawRounds?.reduce((acc, r) => acc + (Number(r[player].secondary1Pts)||0) + (Number(r[player].secondary2Pts)||0), 0) || 0;
+         const totalSecPoints = match.rawRounds?.reduce((acc, r) => acc + (Number(r[player].secondary1Pts)||0) + (Number(r[player].secondary2Pts)||0) + (Number(r[player].secondary3Pts)||0), 0) || 0;
          if (totalSecPoints > 0) return ["Legacy / Unknown Secondary"];
       }
       return list;
@@ -326,19 +327,50 @@ export const History: React.FC = () => {
     const SecondaryRow: React.FC<{ mission: string, type: 'p1'|'p2' }> = ({ mission, type }) => {
        const scores = [0,1,2,3,4].map(idx => {
           const r = match.rawRounds![idx];
-          if (!r) return 0;
+          if (!r) return { pts: 0, discarded: false };
           const d = r[type];
           let pts = 0;
+          let discarded = false;
           if (mission === "Legacy / Unknown Secondary") {
              if (!d.secondary1Name) pts += Number(d.secondary1Pts);
              if (!d.secondary2Name) pts += Number(d.secondary2Pts);
           } else {
-             if (d.secondary1Name === mission) pts += Number(d.secondary1Pts);
-             if (d.secondary2Name === mission) pts += Number(d.secondary2Pts);
+             if (d.secondary1Name === mission) {
+               pts += Number(d.secondary1Pts);
+               if (d.secondary1Discarded) discarded = true;
+             }
+             if (d.secondary2Name === mission) {
+               pts += Number(d.secondary2Pts);
+               if (d.secondary2Discarded) discarded = true;
+             }
+             if (d.secondary3Name === mission) {
+               pts += Number(d.secondary3Pts);
+             }
           }
-          return pts;
+          return { pts, discarded };
        });
-       return <ScoreRow label={mission} data={scores} type={type} />;
+
+       const total = scores.reduce((a, b) => a + b.pts, 0);
+       return (
+         <div className="grid grid-cols-[3fr_repeat(5,1fr)_1.5fr] text-sm border-b border-zinc-800 hover:bg-white/5">
+            <div className="p-2 text-zinc-400 truncate border-r border-zinc-800">{mission}</div>
+            {[0,1,2,3,4].map(idx => (
+              <div key={idx} className="p-2 text-center text-zinc-300 border-r border-zinc-800 relative">
+                {scores[idx].pts > 0 ? (
+                  <span className={scores[idx].discarded ? 'line-through text-zinc-500 opacity-50' : ''}>{scores[idx].pts}</span>
+                ) : (
+                  <span className="text-zinc-700">-</span>
+                )}
+                {scores[idx].discarded && (
+                  <div className="absolute top-0 right-0 p-0.5" title="Discarded">
+                    <span className="text-[8px] bg-red-900/50 text-red-300 px-0.5 rounded border border-red-800/50">X</span>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div className="p-2 text-center font-bold text-white bg-white/5">{total}</div>
+         </div>
+       );
     };
 
     const renderPlayerSection = (player: string, army: string, detach: string | undefined, type: 'p1'|'p2', cpData: number[]) => {

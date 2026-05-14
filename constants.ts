@@ -2,7 +2,7 @@
 
 import { ArmyData, Stratagem, ScoringRule } from './types';
 
-export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyfhY-amfeJiR1Zq2VQDtfk6yDrzkk6s6HtSMSKsFvsBATnNt1u_CM1qVQspsYFhMdB/exec';
+export const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyJyZQqTEfGVwGZKCA2dZKESNMv3OZW4TlFoE3_ZDIZxnI9b4yWHoFNoJRwSCzX94O4/exec';
 
 export const PLAYERS = [
   "Dylan", "Michiel", "Stijn", "Maarten", "Sven", "Stef", "Steven","Sam"

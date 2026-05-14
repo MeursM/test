@@ -294,7 +294,7 @@ export const RoundInput: React.FC<RoundInputProps> = ({
   const totalPrimary = priorPrimary + playerData.primary;
   const cappedPrimary = Math.min(50, totalPrimary);
   
-  const totalSecondary = priorSecondary + playerData.secondary1_pts + playerData.secondary2_pts;
+  const totalSecondary = priorSecondary + playerData.secondary1_pts + playerData.secondary2_pts + (playerData.secondary3_pts || 0);
   const cappedSecondary = Math.min(40, totalSecondary);
 
   const currentCp = calculateCurrentCP();
@@ -326,13 +326,32 @@ export const RoundInput: React.FC<RoundInputProps> = ({
           />
           
           <div className="p-3 bg-zinc-900/30 rounded border border-zinc-800 space-y-3">
-             <Select 
-              label="Secondary 1"
-              options={secondaryOptions} 
-              placeholder="Select Mission"
-              value={playerData.secondary1_name}
-              onChange={e => updateField('secondary1_name', e.target.value)}
-            />
+             <div className="flex justify-between items-center">
+               <Select 
+                label="Secondary 1"
+                options={secondaryOptions} 
+                placeholder="Select Mission"
+                value={playerData.secondary1_name}
+                onChange={e => updateField('secondary1_name', e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase mt-5 cursor-pointer hover:text-war-red transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={playerData.secondary1_discarded || false} 
+                  onChange={e => {
+                    const isDiscarded = e.target.checked;
+                    const cpChange = isDiscarded ? 1 : -1;
+                    onChange({
+                      ...playerData,
+                      secondary1_discarded: isDiscarded,
+                      cpUsed: Math.max(0, playerData.cpUsed + cpChange)
+                    });
+                  }} 
+                  className="accent-war-red"
+                />
+                Discard (1CP)
+              </label>
+             </div>
             {playerData.secondary1_name && (
               <ScoreControl 
                 label="Score"
@@ -344,13 +363,32 @@ export const RoundInput: React.FC<RoundInputProps> = ({
           </div>
 
           <div className="p-3 bg-zinc-900/30 rounded border border-zinc-800 space-y-3">
-            <Select 
-              label="Secondary 2"
-              options={secondaryOptions} 
-              placeholder="Select Mission"
-              value={playerData.secondary2_name}
-              onChange={e => updateField('secondary2_name', e.target.value)}
-            />
+            <div className="flex justify-between items-center">
+              <Select 
+                label="Secondary 2"
+                options={secondaryOptions} 
+                placeholder="Select Mission"
+                value={playerData.secondary2_name}
+                onChange={e => updateField('secondary2_name', e.target.value)}
+              />
+              <label className="flex items-center gap-2 text-[10px] text-zinc-500 uppercase mt-5 cursor-pointer hover:text-war-red transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={playerData.secondary2_discarded || false} 
+                  onChange={e => {
+                    const isDiscarded = e.target.checked;
+                    const cpChange = isDiscarded ? 1 : -1;
+                    onChange({
+                      ...playerData,
+                      secondary2_discarded: isDiscarded,
+                      cpUsed: Math.max(0, playerData.cpUsed + cpChange)
+                    });
+                  }} 
+                  className="accent-war-red"
+                />
+                Discard (1CP)
+              </label>
+            </div>
              {playerData.secondary2_name && (
               <ScoreControl 
                 label="Score"
@@ -360,6 +398,29 @@ export const RoundInput: React.FC<RoundInputProps> = ({
               />
             )}
           </div>
+
+          {(playerData.secondary1_discarded || playerData.secondary2_discarded) && (
+            <div className="p-3 bg-zinc-900/40 rounded border border-war-red/30 space-y-3 animate-fade-in">
+              <div className="flex justify-between items-center">
+                <Select 
+                  label="Secondary 3 (Redraw)"
+                  options={secondaryOptions} 
+                  placeholder="Select Mission"
+                  value={playerData.secondary3_name}
+                  onChange={e => updateField('secondary3_name', e.target.value)}
+                />
+                <span className="text-[10px] text-war-red font-bold uppercase mt-5">Active</span>
+              </div>
+              {playerData.secondary3_name && (
+                <ScoreControl 
+                  label="Score"
+                  value={playerData.secondary3_pts}
+                  rule={getSecondaryRule(playerData.secondary3_name)}
+                  onChange={(val) => updateField('secondary3_pts', val)}
+                />
+              )}
+            </div>
+          )}
 
           <Input 
             label="Challenger VP" 
@@ -376,21 +437,21 @@ export const RoundInput: React.FC<RoundInputProps> = ({
           <div className="grid grid-cols-2 gap-2 mb-2">
              <div className="flex flex-col gap-2">
                <label className="flex items-center gap-2 text-sm text-gray-300">
-                  <input type="checkbox" checked={playerData.cpEarnedTurn1} onChange={e => updateField('cpEarnedTurn1', e.target.checked)} className="accent-war-red" />
+                  <input type="checkbox" checked={playerData.cpEarnedTurn1 || false} onChange={e => updateField('cpEarnedTurn1', e.target.checked)} className="accent-war-red" />
                   Turn 1 CMD (+1)
                </label>
                <label className="flex items-center gap-2 text-sm text-gray-300">
-                  <input type="checkbox" checked={playerData.cpEarnedTurn2} onChange={e => updateField('cpEarnedTurn2', e.target.checked)} className="accent-war-red" />
+                  <input type="checkbox" checked={playerData.cpEarnedTurn2 || false} onChange={e => updateField('cpEarnedTurn2', e.target.checked)} className="accent-war-red" />
                   Turn 2 CMD (+1)
                </label>
              </div>
              <div className="flex flex-col gap-2 border-l border-zinc-700 pl-2">
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
-                  <input type="checkbox" checked={playerData.cpGainedTurn1} onChange={e => updateField('cpGainedTurn1', e.target.checked)} className="accent-war-red" />
+                  <input type="checkbox" checked={playerData.cpGainedTurn1 || false} onChange={e => updateField('cpGainedTurn1', e.target.checked)} className="accent-war-red" />
                   Gained (e.g Discard)
                </label>
                <label className="flex items-center gap-2 text-sm text-war-red-dim hover:text-war-red cursor-pointer transition-colors">
-                  <input type="checkbox" checked={playerData.cpGainedTurn2} onChange={e => updateField('cpGainedTurn2', e.target.checked)} className="accent-war-red" />
+                  <input type="checkbox" checked={playerData.cpGainedTurn2 || false} onChange={e => updateField('cpGainedTurn2', e.target.checked)} className="accent-war-red" />
                   Gained (e.g Discard)
                </label>
              </div>

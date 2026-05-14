@@ -15,8 +15,12 @@ export interface PlayerRoundData {
   primary: number;
   secondary1_name: string;
   secondary1_pts: number;
+  secondary1_discarded: boolean;
   secondary2_name: string;
   secondary2_pts: number;
+  secondary2_discarded: boolean;
+  secondary3_name: string;
+  secondary3_pts: number;
   challenger: number;
   cpEarnedTurn1: boolean; // T1 checkbox
   cpGainedTurn1: boolean; // T1 Gained CP (e.g. discard secondary)
@@ -63,8 +67,12 @@ export interface HistoricalRoundData {
     primary: number; 
     secondary1Name: string;
     secondary1Pts: number;
+    secondary1Discarded?: boolean;
     secondary2Name: string;
     secondary2Pts: number;
+    secondary2Discarded?: boolean;
+    secondary3Name?: string;
+    secondary3Pts?: number;
     secondary: number; 
     challenger: number; 
     cpEarned: number; 
@@ -74,8 +82,12 @@ export interface HistoricalRoundData {
     primary: number; 
     secondary1Name: string;
     secondary1Pts: number;
+    secondary1Discarded?: boolean;
     secondary2Name: string;
     secondary2Pts: number;
+    secondary2Discarded?: boolean;
+    secondary3Name?: string;
+    secondary3Pts?: number;
     secondary: number; 
     challenger: number; 
     cpEarned: number; 
@@ -148,8 +160,12 @@ export const INITIAL_PLAYER_ROUND: PlayerRoundData = {
   primary: 0,
   secondary1_name: '',
   secondary1_pts: 0,
+  secondary1_discarded: false,
   secondary2_name: '',
   secondary2_pts: 0,
+  secondary2_discarded: false,
+  secondary3_name: '',
+  secondary3_pts: 0,
   challenger: 0,
   cpEarnedTurn1: false,
   cpGainedTurn1: false,
