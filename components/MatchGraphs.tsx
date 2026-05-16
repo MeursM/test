@@ -40,11 +40,11 @@ export const MatchGraphs: React.FC<MatchGraphsProps> = ({ matchData }) => {
   const p2Name = matchData.player2 || 'Player 2';
 
   return (
-    <div className="grid grid-cols-2 gap-4 mb-8">
+    <div className="grid grid-cols-2 gap-2 mb-4">
       {/* Cumulative Score Chart */}
-      <div className="bg-war-panel p-4 rounded-lg border border-zinc-700 shadow-xl">
-        <h3 className="text-war-red font-orbitron text-lg mb-4 text-center">Total Victory Points</h3>
-        <div className="h-64">
+      <div className="bg-war-panel p-2 rounded-lg border border-zinc-700 shadow-xl">
+        <h3 className="text-war-red font-orbitron text-[10px] mb-2 text-center uppercase">Total Victory Points</h3>
+        <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data}>
               <defs>
@@ -87,9 +87,9 @@ export const MatchGraphs: React.FC<MatchGraphsProps> = ({ matchData }) => {
       </div>
 
       {/* Round by Round Comparison */}
-      <div className="bg-war-panel p-4 rounded-lg border border-zinc-700 shadow-xl">
-        <h3 className="text-war-red font-orbitron text-lg mb-4 text-center">Points Per Round</h3>
-        <div className="h-64">
+      <div className="bg-war-panel p-2 rounded-lg border border-zinc-700 shadow-xl">
+        <h3 className="text-war-red font-orbitron text-[10px] mb-2 text-center uppercase">Points Per Round</h3>
+        <div className="h-40">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#333" />

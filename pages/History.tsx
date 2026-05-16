@@ -789,12 +789,18 @@ export const History: React.FC = () => {
                             </div>
                          </div>
                          {canViewScorecard && (
-                            <div className="text-center">
+                            <div className="text-center flex flex-wrap justify-center gap-2">
                                <button 
                                  onClick={() => setSelectedMatch(m)}
-                                 className="text-xs uppercase tracking-widest text-zinc-500 hover:text-white transition-colors py-1 px-4 border border-zinc-800 hover:border-zinc-600 rounded"
+                                 className="text-xs uppercase tracking-widest text-zinc-500 hover:text-white transition-colors py-1 px-3 border border-zinc-800 hover:border-zinc-600 rounded"
                                >
-                                 View Scorecard
+                                 View Score
+                               </button>
+                               <button 
+                                 onClick={() => navigate('/', { state: { editMatch: m } })}
+                                 className="text-xs uppercase tracking-widest text-war-red-dim hover:text-war-red transition-colors py-1 px-3 border border-zinc-800 hover:border-war-red/30 rounded"
+                               >
+                                 Edit
                                </button>
                             </div>
                          )}

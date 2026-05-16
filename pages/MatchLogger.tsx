@@ -32,14 +32,70 @@ export const MatchLogger: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Check for Tournament Init State
-  const tournamentState = location.state as Partial<MatchState> | undefined;
+  // Check for Tournament or Edit Init State
+  const incomingState = location.state as { editMatch?: any } & Partial<MatchState> | undefined;
 
   const [activeTab, setActiveTab] = useState<'setup' | 1 | 2 | 3 | 4 | 5>('setup');
   const [matchData, setMatchData] = useState<MatchState>(() => {
+    // If we are in edit mode
+    if (incomingState?.editMatch) {
+      const m = incomingState.editMatch;
+      const rounds = m.rawRounds ? m.rawRounds.map((r: any) => ({
+        roundNumber: r.round,
+        p1: {
+          ...INITIAL_PLAYER_ROUND,
+          primary: Number(r.p1.primary) || 0,
+          secondary1_name: r.p1.secondary1Name || '',
+          secondary1_pts: Number(r.p1.secondary1Pts) || 0,
+          secondary1_discarded: !!r.p1.secondary1Discarded,
+          secondary2_name: r.p1.secondary2Name || '',
+          secondary2_pts: Number(r.p1.secondary2Pts) || 0,
+          secondary2_discarded: !!r.p1.secondary2Discarded,
+          secondary3_name: r.p1.secondary3Name || '',
+          secondary3_pts: Number(r.p1.secondary3Pts) || 0,
+          challenger: Number(r.p1.challenger) || 0,
+          cpUsed: Number(r.p1.cpUsed) || 0,
+          cpEarnedArmy: [String(r.p1.cpEarned || 0)] // Put total into army CP since we don't have granular breakdown
+        },
+        p2: {
+          ...INITIAL_PLAYER_ROUND,
+          primary: Number(r.p2.primary) || 0,
+          secondary1_name: r.p2.secondary1Name || '',
+          secondary1_pts: Number(r.p2.secondary1Pts) || 0,
+          secondary1_discarded: !!r.p2.secondary1Discarded,
+          secondary2_name: r.p2.secondary2Name || '',
+          secondary2_pts: Number(r.p2.secondary2Pts) || 0,
+          secondary2_discarded: !!r.p2.secondary2Discarded,
+          secondary3_name: r.p2.secondary3Name || '',
+          secondary3_pts: Number(r.p2.secondary3Pts) || 0,
+          challenger: Number(r.p2.challenger) || 0,
+          cpUsed: Number(r.p2.cpUsed) || 0,
+          cpEarnedArmy: [String(r.p2.cpEarned || 0)]
+        }
+      })) : INITIAL_STATE.rounds;
+
+      return {
+        ...INITIAL_STATE,
+        player1: m.player1,
+        player2: m.player2,
+        army1: m.army1,
+        army2: m.army2,
+        detachmentP1: m.detachment1 || '',
+        detachmentP2: m.detachment2 || '',
+        points: m.points || 2000,
+        primaryMission: m.mission || '',
+        gameMode: m.gameMode || 'Tournament',
+        tournamentId: m.tournamentId,
+        bracketMatchId: m.bracketMatchId,
+        roundIndex: m.roundIndex,
+        bracketType: m.bracketType,
+        rounds: rounds
+      };
+    }
+
     // If we have tournament state passed in, use it immediately
-    if (tournamentState) {
-        return { ...INITIAL_STATE, ...tournamentState };
+    if (incomingState) {
+        return { ...INITIAL_STATE, ...incomingState };
     }
 
     const saved = localStorage.getItem('battleforge_match_v1');
@@ -47,12 +103,12 @@ export const MatchLogger: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-save (Skip if in tournament mode to avoid overwriting standard local save, or use separate key)
+  // Auto-save (Skip if in specialty mode to avoid overwriting standard local save)
   useEffect(() => {
-    if (!tournamentState) {
+    if (!incomingState) {
        localStorage.setItem('battleforge_match_v1', JSON.stringify(matchData));
     }
-  }, [matchData, tournamentState]);
+  }, [matchData, incomingState]);
 
   const updateSetup = (field: keyof MatchState, value: any) => {
     setMatchData(prev => ({ ...prev, [field]: value }));
@@ -99,11 +155,16 @@ export const MatchLogger: React.FC = () => {
     return { primary, secondary, scoredSecondaries: Array.from(scoredSecondaries) };
   };
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
   const handleClear = () => {
-    if(confirm("Are you sure you want to clear all data?")) {
-      setMatchData(INITIAL_STATE);
-      setActiveTab('setup');
+    setMatchData(INITIAL_STATE);
+    localStorage.removeItem('battleforge_match_v1');
+    setActiveTab('setup');
+    if (incomingState) {
+      navigate(location.pathname, { replace: true, state: {} });
     }
+    setShowResetConfirm(false);
   };
 
   const handleSubmit = async () => {
@@ -136,9 +197,9 @@ export const MatchLogger: React.FC = () => {
 
       const winner = p1Score > p2Score ? matchData.player1 : (p2Score > p1Score ? matchData.player2 : null);
 
-      alert("Match submitted successfully!");
+      alert("Match submitted successfully!" + (incomingState?.editMatch ? " Note: Edits result in a new entry in the records." : ""));
       
-      if (tournamentState) {
+      if (incomingState?.tournamentId) {
         // Return to Tournament Hub with result
         navigate('/tournament', { 
             state: { 
@@ -150,6 +211,7 @@ export const MatchLogger: React.FC = () => {
         setMatchData(INITIAL_STATE);
         localStorage.removeItem('battleforge_match_v1');
         setActiveTab('setup');
+        navigate('/history');
       }
 
     } catch (e) {
@@ -173,27 +235,46 @@ export const MatchLogger: React.FC = () => {
   const p2Prior = getPriorScores(activeRoundNum, 'p2');
 
   const isTournamentMode = !!matchData.tournamentId;
+  const isEditMode = !!incomingState?.editMatch;
 
   return (
-    <div className="min-h-screen pb-20 scale-90 origin-top-left transform-gpu w-[111.11%] overflow-x-hidden">
-      <header className="bg-war-panel border-b border-zinc-700 p-3 sticky top-0 z-50 shadow-lg">
-        <div className="w-full px-4 flex justify-between items-center">
-          <div className="flex flex-col">
-            <h1 className="text-xl font-orbitron font-bold text-war-red tracking-widest leading-none">
+    <div className="min-h-screen bg-black overflow-x-hidden">
+      <div className="min-h-screen pb-20 scale-90 origin-top-left transform-gpu w-[111.11vw]">
+      <header className="bg-war-panel border-b border-zinc-700 p-1.5 sticky top-0 z-50 shadow-lg">
+        <div className="w-full px-2 flex justify-between items-center">
+          <div className="flex flex-col shrink-0">
+            <h1 className="text-base font-orbitron font-bold text-war-red tracking-tight leading-none">
               BATTLE<span className="text-white">FORGE</span>
             </h1>
-            {isTournamentMode && <span className="text-[10px] text-green-400 font-mono">TOURNAMENT</span>}
+            <div className="flex gap-2 items-center">
+              {isTournamentMode && <span className="text-[9px] text-green-400 font-mono">TOURNAMENT</span>}
+              {isEditMode && <span className="text-[9px] text-amber-500 font-mono italic">EDIT</span>}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {!isTournamentMode && <Button variant="secondary" className="text-[10px] h-8 px-2" onClick={() => navigate('/history')}>
-               STATS
-            </Button>}
-             <Button variant="secondary" className="text-[10px] h-8 px-2" onClick={() => navigate('/tournament')}>
-               BRACKETS
-            </Button>
-            <Button variant="danger" className="text-[10px] h-8 px-2" onClick={handleClear}>
-               RESET
-            </Button>
+          <div className="flex gap-1 items-center">
+            {showResetConfirm ? (
+              <div className="flex gap-1 items-center animate-fade-in">
+                <span className="text-[8px] text-war-red font-bold uppercase whitespace-nowrap">Sure?</span>
+                <Button variant="danger" className="text-[8px] h-7 px-2 min-w-0" onClick={handleClear}>
+                   YES
+                </Button>
+                <Button variant="secondary" className="text-[8px] h-7 px-2 min-w-0" onClick={() => setShowResetConfirm(false)}>
+                   NO
+                </Button>
+              </div>
+            ) : (
+              <>
+                {!isTournamentMode && <Button variant="secondary" className="text-[8px] h-7 px-1.5 min-w-0" onClick={() => navigate('/history')}>
+                   STATS
+                </Button>}
+                 <Button variant="secondary" className="text-[8px] h-7 px-1.5 min-w-0" onClick={() => navigate('/tournament')}>
+                   BRACKETS
+                </Button>
+                <Button variant="danger" className="text-[8px] h-7 px-1.5 min-w-0" onClick={() => setShowResetConfirm(true)}>
+                   RESET
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -319,6 +400,7 @@ export const MatchLogger: React.FC = () => {
            </button>
          ))}
       </nav>
+    </div>
     </div>
   );
 };
