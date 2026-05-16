@@ -140,10 +140,14 @@ export const SECONDARY_SCORING: Record<string, ScoringRule> = {
 
 
 export const GENERAL_STRATAGEMS: Stratagem[] = [
-  { name: "COMMAND RE-ROLL(move)", cost: 1 },
-  { name: "COMMAND RE-ROLL(shoot)", cost: 1 },
-  { name: "COMMAND RE-ROLL(charge)", cost: 1 },
-  { name: "COMMAND RE-ROLL(fight)", cost: 1 },
+  { name: "COMMAND RE-ROLL(move)Own", cost: 1 },
+  { name: "COMMAND RE-ROLL(shoot)Own", cost: 1 },
+  { name: "COMMAND RE-ROLL(charge)Own", cost: 1 },
+  { name: "COMMAND RE-ROLL(fight)Own", cost: 1 },
+  { name: "COMMAND RE-ROLL(move)opponent", cost: 1 },
+  { name: "COMMAND RE-ROLL(shoot)opponent", cost: 1 },
+  { name: "COMMAND RE-ROLL(charge)opponent", cost: 1 },
+  { name: "COMMAND RE-ROLL(fight)opponent", cost: 1 },
   { name: "COUNTER-OFFENSIVE", cost: 2 },
   { name: "EPIC CHALLENGE", cost: 1 },
   { name: "INSANE BRAVERY", cost: 1 },
