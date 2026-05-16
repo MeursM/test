@@ -175,30 +175,30 @@ export const MatchLogger: React.FC = () => {
   const isTournamentMode = !!matchData.tournamentId;
 
   return (
-    <div className="min-h-screen pb-20 scale-90 origin-top transform-gpu">
-      <header className="bg-war-panel border-b border-zinc-700 p-4 sticky top-0 z-50 shadow-lg">
-        <div className="container mx-auto flex justify-between items-center">
+    <div className="min-h-screen pb-20 scale-90 origin-top-left transform-gpu w-[111.11%] overflow-x-hidden">
+      <header className="bg-war-panel border-b border-zinc-700 p-3 sticky top-0 z-50 shadow-lg">
+        <div className="w-full px-4 flex justify-between items-center">
           <div className="flex flex-col">
-            <h1 className="text-2xl font-orbitron font-bold text-war-red tracking-widest leading-none">
+            <h1 className="text-xl font-orbitron font-bold text-war-red tracking-widest leading-none">
               BATTLE<span className="text-white">FORGE</span>
             </h1>
-            {isTournamentMode && <span className="text-xs text-green-400 font-mono">TOURNAMENT MATCH</span>}
+            {isTournamentMode && <span className="text-[10px] text-green-400 font-mono">TOURNAMENT</span>}
           </div>
           <div className="flex gap-2">
-            {!isTournamentMode && <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/history')}>
+            {!isTournamentMode && <Button variant="secondary" className="text-[10px] h-8 px-2" onClick={() => navigate('/history')}>
                STATS
             </Button>}
-             <Button variant="secondary" className="text-xs py-2 px-3" onClick={() => navigate('/tournament')}>
+             <Button variant="secondary" className="text-[10px] h-8 px-2" onClick={() => navigate('/tournament')}>
                BRACKETS
             </Button>
-            <Button variant="danger" className="text-xs py-2 px-3" onClick={handleClear}>
+            <Button variant="danger" className="text-[10px] h-8 px-2" onClick={handleClear}>
                RESET
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto p-2 max-w-7xl">
+      <main className="w-full p-2">
         
         {(matchData.player1 && matchData.player2) && (
           <MatchGraphs matchData={matchData} />
@@ -206,12 +206,12 @@ export const MatchLogger: React.FC = () => {
 
         {activeTab === 'setup' && (
           <div className="animate-fade-in space-y-6">
-             <div className="bg-war-panel p-4 rounded-lg border border-zinc-700 shadow-xl">
-                <h2 className="text-xl font-orbitron mb-6 border-b border-zinc-700 pb-2">Match Setup</h2>
+             <div className="bg-war-panel p-3 rounded-lg border border-zinc-700 shadow-xl">
+                <h2 className="text-lg font-orbitron mb-4 border-b border-zinc-700 pb-2">Match Setup</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                   <Input label="Points Limit" type="number" value={matchData.points} onChange={e => updateSetup('points', parseInt(e.target.value))} />
-                   <Select label="Primary Mission" options={missionOptions} value={matchData.primaryMission} onChange={e => updateSetup('primaryMission', e.target.value)} placeholder="Select Mission" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                   <Input label="Points Limit" type="number" value={matchData.points} onChange={e => updateSetup('points', parseInt(e.target.value))} className="text-xs" />
+                   <Select label="Primary Mission" options={missionOptions} value={matchData.primaryMission} onChange={e => updateSetup('primaryMission', e.target.value)} placeholder="Select Mission" className="text-xs" />
                    <Select 
                      label="Game Mode" 
                      options={[
@@ -220,30 +220,31 @@ export const MatchLogger: React.FC = () => {
                      ]} 
                      value={matchData.gameMode} 
                      onChange={e => updateSetup('gameMode', e.target.value)} 
+                     className="text-xs"
                    />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                   <div className="space-y-4 p-3 border border-zinc-800 rounded bg-zinc-900/50">
-                      <h3 className="text-war-red font-bold font-orbitron text-sm">Player 1 (Attacker)</h3>
+                <div className="grid grid-cols-2 gap-3">
+                   <div className="space-y-3 p-2 border border-zinc-800 rounded bg-zinc-900/50">
+                      <h3 className="text-war-red font-bold font-orbitron text-[10px] uppercase">Attacker</h3>
                       {isTournamentMode ? (
-                        <div className="text-white font-bold text-base border-b border-zinc-700 pb-2">{matchData.player1}</div>
+                        <div className="text-white font-bold text-sm border-b border-zinc-700 pb-1">{matchData.player1}</div>
                       ) : (
-                        <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Select Player" />
+                        <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Player" />
                       )}
-                      <Select label="Army" options={armyOptions} value={matchData.army1} onChange={e => updateSetup('army1', e.target.value)} placeholder="Select Faction" />
-                      <Select label="Detachment" options={getDetachments(matchData.army1)} value={matchData.detachmentP1} onChange={e => updateSetup('detachmentP1', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army1} />
+                      <Select label="Faction" options={armyOptions} value={matchData.army1} onChange={e => updateSetup('army1', e.target.value)} placeholder="Faction" />
+                      <Select label="Detachment" options={getDetachments(matchData.army1)} value={matchData.detachmentP1} onChange={e => updateSetup('detachmentP1', e.target.value)} placeholder="Detachment" disabled={!matchData.army1} />
                    </div>
 
-                   <div className="space-y-4 p-3 border border-zinc-800 rounded bg-zinc-900/50">
-                      <h3 className="text-blue-500 font-bold font-orbitron text-sm">Player 2 (Defender)</h3>
+                   <div className="space-y-3 p-2 border border-zinc-800 rounded bg-zinc-900/50">
+                      <h3 className="text-blue-500 font-bold font-orbitron text-[10px] uppercase">Defender</h3>
                       {isTournamentMode ? (
-                        <div className="text-white font-bold text-base border-b border-zinc-700 pb-2">{matchData.player2}</div>
+                        <div className="text-white font-bold text-sm border-b border-zinc-700 pb-1">{matchData.player2}</div>
                       ) : (
-                        <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Select Player" />
+                        <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Player" />
                       )}
-                      <Select label="Army" options={armyOptions} value={matchData.army2} onChange={e => updateSetup('army2', e.target.value)} placeholder="Select Faction" />
-                      <Select label="Detachment" options={getDetachments(matchData.army2)} value={matchData.detachmentP2} onChange={e => updateSetup('detachmentP2', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army2} />
+                      <Select label="Faction" options={armyOptions} value={matchData.army2} onChange={e => updateSetup('army2', e.target.value)} placeholder="Faction" />
+                      <Select label="Detachment" options={getDetachments(matchData.army2)} value={matchData.detachmentP2} onChange={e => updateSetup('detachmentP2', e.target.value)} placeholder="Detachment" disabled={!matchData.army2} />
                    </div>
                 </div>
              </div>

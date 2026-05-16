@@ -168,12 +168,12 @@ const ScoreControl: React.FC<{
       
       {/* TIERED / FIXED */}
       {(rule.type === 'tiered' || rule.type === 'fixed') && rule.options && (
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-1 flex-wrap">
           {rule.options.map(opt => (
             <button
               key={opt}
               onClick={() => onChange(opt)}
-              className={`flex-1 py-2 rounded text-sm font-bold border transition-all min-w-[3rem] ${
+              className={`flex-1 py-1 px-1 rounded text-xs font-bold border transition-all min-w-[2.5rem] ${
                 value === opt 
                   ? 'bg-war-red border-war-red text-white' 
                   : 'bg-zinc-800 border-zinc-700 text-gray-400 hover:bg-zinc-700'
@@ -187,27 +187,27 @@ const ScoreControl: React.FC<{
 
       {/* ADDITIVE GROUPS */}
       {rule.type === 'additive' && (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-2">
            {renderGroups.map((grp, gIdx) => (
              <div key={gIdx} className="flex flex-col gap-1">
-               {grp.label && <span className="text-[10px] text-zinc-500 uppercase">{grp.label} {grp.max ? `(Max ${grp.max})` : ''}</span>}
-               <div className="flex flex-wrap gap-2">
+               {grp.label && <span className="text-[9px] text-zinc-500 uppercase">{grp.label} {grp.max ? `(Max ${grp.max})` : ''}</span>}
+               <div className="flex flex-wrap gap-1">
                  {grp.buttons.map((btn, bIdx) => {
-                   const isActive = activeIndices.get(gIdx)?.includes(bIdx);
-                   return (
-                     <button
-                       key={bIdx}
-                       onClick={() => handleAdditiveToggle(gIdx, bIdx, !!isActive)}
-                       className={`
-                          w-12 h-12 rounded font-bold text-lg transition-all transform active:scale-95 border
-                          ${isActive 
-                            ? 'bg-green-600 border-green-500 text-white shadow-[0_0_10px_rgba(34,197,94,0.4)]' 
-                            : 'bg-zinc-800 border-zinc-600 text-gray-400 hover:bg-zinc-700'}
-                       `}
-                     >
-                       {btn}
-                     </button>
-                   );
+                    const isActive = activeIndices.get(gIdx)?.includes(bIdx);
+                    return (
+                      <button
+                        key={bIdx}
+                        onClick={() => handleAdditiveToggle(gIdx, bIdx, !!isActive)}
+                        className={`
+                           w-8 h-8 rounded font-bold text-sm transition-all transform active:scale-95 border
+                           ${isActive 
+                             ? 'bg-green-600 border-green-500 text-white shadow-[0_0_8px_rgba(34,197,94,0.4)]' 
+                             : 'bg-zinc-800 border-zinc-600 text-gray-400 hover:bg-zinc-700'}
+                        `}
+                      >
+                        {btn}
+                      </button>
+                    );
                  })}
                </div>
              </div>
@@ -215,7 +215,7 @@ const ScoreControl: React.FC<{
            <div className="flex justify-end">
              <button 
                onClick={() => { setManualSelection(null); onChange(0); }}
-               className="text-xs text-red-400 hover:text-red-300 underline"
+               className="text-[10px] text-red-400 hover:text-red-300 underline"
              >
                Reset Score
              </button>
