@@ -40,7 +40,7 @@ export const MatchGraphs: React.FC<MatchGraphsProps> = ({ matchData }) => {
   const p2Name = matchData.player2 || 'Player 2';
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+    <div className="grid grid-cols-2 gap-4 mb-8">
       {/* Cumulative Score Chart */}
       <div className="bg-war-panel p-4 rounded-lg border border-zinc-700 shadow-xl">
         <h3 className="text-war-red font-orbitron text-lg mb-4 text-center">Total Victory Points</h3>

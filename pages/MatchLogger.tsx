@@ -85,12 +85,18 @@ export const MatchLogger: React.FC = () => {
   const getPriorScores = (roundNum: number, player: 'p1' | 'p2') => {
     let primary = 0;
     let secondary = 0;
+    const scoredSecondaries = new Set<string>();
+    
     for(let i=0; i < roundNum - 1; i++) {
        const r = matchData.rounds[i][player];
        primary += r.primary;
-       secondary += (r.secondary1_pts + r.secondary2_pts);
+       secondary += (r.secondary1_pts + r.secondary2_pts + (r.secondary3_pts || 0));
+       
+       if (r.secondary1_name && (r.secondary1_pts > 0 || r.secondary1_discarded)) scoredSecondaries.add(r.secondary1_name);
+       if (r.secondary2_name && (r.secondary2_pts > 0 || r.secondary2_discarded)) scoredSecondaries.add(r.secondary2_name);
+       if (r.secondary3_name && (r.secondary3_pts > 0)) scoredSecondaries.add(r.secondary3_name);
     }
-    return { primary, secondary };
+    return { primary, secondary, scoredSecondaries: Array.from(scoredSecondaries) };
   };
 
   const handleClear = () => {
@@ -117,11 +123,11 @@ export const MatchLogger: React.FC = () => {
       
       matchData.rounds.forEach(r => {
         p1Prim += r.p1.primary;
-        p1Sec += (r.p1.secondary1_pts + r.p1.secondary2_pts);
+        p1Sec += (r.p1.secondary1_pts + r.p1.secondary2_pts + (r.p1.secondary3_pts || 0));
         p1Chal += r.p1.challenger;
 
         p2Prim += r.p2.primary;
-        p2Sec += (r.p2.secondary1_pts + r.p2.secondary2_pts);
+        p2Sec += (r.p2.secondary1_pts + r.p2.secondary2_pts + (r.p2.secondary3_pts || 0));
         p2Chal += r.p2.challenger;
       });
 
@@ -169,7 +175,7 @@ export const MatchLogger: React.FC = () => {
   const isTournamentMode = !!matchData.tournamentId;
 
   return (
-    <div className="min-h-screen pb-20">
+    <div className="min-h-screen pb-20 scale-90 origin-top transform-gpu">
       <header className="bg-war-panel border-b border-zinc-700 p-4 sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex flex-col">
@@ -192,7 +198,7 @@ export const MatchLogger: React.FC = () => {
         </div>
       </header>
 
-      <main className="container mx-auto p-4 max-w-4xl">
+      <main className="container mx-auto p-2 max-w-7xl">
         
         {(matchData.player1 && matchData.player2) && (
           <MatchGraphs matchData={matchData} />
@@ -200,7 +206,7 @@ export const MatchLogger: React.FC = () => {
 
         {activeTab === 'setup' && (
           <div className="animate-fade-in space-y-6">
-             <div className="bg-war-panel p-6 rounded-lg border border-zinc-700 shadow-xl">
+             <div className="bg-war-panel p-4 rounded-lg border border-zinc-700 shadow-xl">
                 <h2 className="text-xl font-orbitron mb-6 border-b border-zinc-700 pb-2">Match Setup</h2>
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -217,11 +223,11 @@ export const MatchLogger: React.FC = () => {
                    />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                   <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
-                      <h3 className="text-war-red font-bold font-orbitron">Player 1 (Attacker)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="space-y-4 p-3 border border-zinc-800 rounded bg-zinc-900/50">
+                      <h3 className="text-war-red font-bold font-orbitron text-sm">Player 1 (Attacker)</h3>
                       {isTournamentMode ? (
-                        <div className="text-white font-bold text-lg border-b border-zinc-700 pb-2">{matchData.player1}</div>
+                        <div className="text-white font-bold text-base border-b border-zinc-700 pb-2">{matchData.player1}</div>
                       ) : (
                         <Select label="Name" options={playerOptions} value={matchData.player1} onChange={e => updateSetup('player1', e.target.value)} placeholder="Select Player" />
                       )}
@@ -229,10 +235,10 @@ export const MatchLogger: React.FC = () => {
                       <Select label="Detachment" options={getDetachments(matchData.army1)} value={matchData.detachmentP1} onChange={e => updateSetup('detachmentP1', e.target.value)} placeholder="Select Detachment" disabled={!matchData.army1} />
                    </div>
 
-                   <div className="space-y-4 p-4 border border-zinc-800 rounded bg-zinc-900/50">
-                      <h3 className="text-blue-500 font-bold font-orbitron">Player 2 (Defender)</h3>
+                   <div className="space-y-4 p-3 border border-zinc-800 rounded bg-zinc-900/50">
+                      <h3 className="text-blue-500 font-bold font-orbitron text-sm">Player 2 (Defender)</h3>
                       {isTournamentMode ? (
-                        <div className="text-white font-bold text-lg border-b border-zinc-700 pb-2">{matchData.player2}</div>
+                        <div className="text-white font-bold text-base border-b border-zinc-700 pb-2">{matchData.player2}</div>
                       ) : (
                         <Select label="Name" options={playerOptions} value={matchData.player2} onChange={e => updateSetup('player2', e.target.value)} placeholder="Select Player" />
                       )}
@@ -249,10 +255,10 @@ export const MatchLogger: React.FC = () => {
         )}
 
         {typeof activeTab === 'number' && (
-          <div className="animate-fade-in space-y-6">
-            <h2 className="text-2xl font-orbitron text-center mb-6">Round {activeTab}</h2>
+          <div className="animate-fade-in space-y-4">
+            <h2 className="text-xl font-orbitron text-center mb-4">Round {activeTab}</h2>
             
-            <div className="grid grid-cols-1 gap-6">
+            <div className="grid grid-cols-2 gap-3">
               <RoundInput 
                 playerName={matchData.player1}
                 playerData={matchData.rounds[activeTab - 1].p1}
@@ -264,6 +270,7 @@ export const MatchLogger: React.FC = () => {
                 startingCp={getStartCpForRound(activeTab, 'p1')}
                 priorPrimary={p1Prior.primary}
                 priorSecondary={p1Prior.secondary}
+                scoredSecondaries={p1Prior.scoredSecondaries}
               />
               
               <RoundInput 
@@ -278,10 +285,12 @@ export const MatchLogger: React.FC = () => {
                 startingCp={getStartCpForRound(activeTab, 'p2')}
                 priorPrimary={p2Prior.primary}
                 priorSecondary={p2Prior.secondary}
+                scoredSecondaries={p2Prior.scoredSecondaries}
               />
             </div>
 
-            <div className="flex justify-between mt-8">
+
+            <div className="flex justify-between mt-6">
                {activeTab === 5 ? (
                  <Button onClick={handleSubmit} className="w-full bg-green-600 hover:bg-green-700" disabled={isSubmitting}>
                     {isSubmitting ? 'Submitting...' : 'FINISH GAME'}
